@@ -146,6 +146,14 @@ function rmdirR(path) {
     fs.rmdirSync(path);
   }
 }
+function errorHandler(error) {
+  if (error.errno === 34 && error.code === 'ENOENT') {
+    console.log('Target directory does not exist');
+  } else {
+    console.log(error);
+  }
+  return error;
+}
 function backup($__3) {
   var host = "host"in $__3 ? $__3.host: 'localhost', port = "port"in $__3 ? $__3.port: 9200, index = $__3.index, type = $__3.type, filePath = "filePath"in $__3 ? $__3.filePath: 'temp';
   var client = new Client({
@@ -168,7 +176,5 @@ function backup($__3) {
     }
   })()).then((function(files) {
     return (process.stdout.write('\n' + files.join('\n')), filePath);
-  })).then(compress).then(rmdirR, (function(error) {
-    return console.log(error);
-  }));
+  })).then(compress).then(rmdirR, errorHandler);
 }

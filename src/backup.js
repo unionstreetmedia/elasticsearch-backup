@@ -179,6 +179,15 @@ function rmdirR (path) {
     }
 }
 
+function errorHandler (error) {
+    if (error.errno === 34 && error.code === 'ENOENT') {
+        console.log('Target directory does not exist');
+    } else {
+        console.log(error);
+    }
+    return error
+}
+
 //Main function
 function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
     var client = new Client({host, port});
@@ -196,5 +205,5 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
         }
     }()).then(files => (process.stdout.write('\n' + files.join('\n')), filePath))
         .then(compress)
-        .then(rmdirR, error => console.log(error));
+        .then(rmdirR, errorHandler);
 }
