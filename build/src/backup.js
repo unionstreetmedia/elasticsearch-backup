@@ -20,7 +20,7 @@ function promiseEndFile(fileStream) {
 }
 function writeDocuments(fileStream) {
   return (function(data) {
-    return promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join(',\n'));
+    return promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join('\n'));
   });
 }
 function documents($__1) {
