@@ -1,0 +1,21 @@
+{
+  "name": "ElasticsearchBackup",
+  "version": "0.0.0",
+  "description": "Backup Elasticsearch indexes",
+  "main": "build/src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Evan Borden",
+  "license": "BSD-2-Clause",
+  "dependencies": {
+    "rsvp": "*",
+    "promiscuous-tool": "*",
+    "lodash": "*"
+  },
+  "devDependencies": {
+    "traceur": "*",
+    "grunt": "*",
+    "grunt-traceur": "0.0.1"
+  }
+}
