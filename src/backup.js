@@ -1,3 +1,5 @@
+'user strict';
+
 var http = require('http'),
     prom = require('promiscuous-tool'),
     _ = require('lodash'),
@@ -7,12 +9,6 @@ var http = require('http'),
     tar = require('tar');
 
 exports.run = backup;
-
-process.on('uncaughtException',function(e) {
-    //Got additional debugging
-    console.log("Caught unhandled exception: " + e);
-    console.log(" ---> : " + e.stack);
-});
 
 //Write to file stream and return promise
 function promiseWriteToFileStream (fileStream, data) {
@@ -41,32 +37,35 @@ function writeDocuments (fileStream) {
     };
 }
 
+//Curried document getter
+function documentGetter ({client, index, type, sortBy = '_Created'}) {
+    return (start, size) => client.get({
+        index: index,
+        type: type,
+        path: '_search',
+        body: {
+            query: {
+                "match_all": {}
+            },
+            start: start,
+            size: size,
+            sortBy: sortBy
+        }
+    });
+}
+
 //Document Backup
-function documents ({client, index, type, start = 0, size = 100, sortBy = '_Created', fileStream}) {
-    return client.get({
-            index: index,
-            type: type,
-            path: '_search',
-            body: {
-                query: {
-                    "match_all": {}
-                },
-                start: start,
-                size: size,
-                sortBy: sortBy
-            }
-        }).then(data => prom.sequence([
+function backupDocuments ({docGetter, fileStream, start = 0, size = 100}) {
+    return docGetter(start, size)
+        .then(data => prom.sequence([
             writeDocuments(fileStream),
             (data) => {
                 if (start + size < data.hits.total) {
-                    return documents({
-                        client: client,
-                        index: index,
-                        type: type,
-                        start: start + size,
-                        size: size,
-                        sortBy: sortBy,
-                        fileStream: fileStream
+                    return backupDocuments({
+                        docGetter,
+                        fileStream,
+                        size,
+                        start: start + size
                     });
                 } else {
                     return promiseEndFile(fileStream);
@@ -75,44 +74,41 @@ function documents ({client, index, type, start = 0, size = 100, sortBy = '_Crea
 }
 
 //Write mapping backup files
-function writeMappingBackup ({fileStream, index, name, mapping}) {
+function writeMappingBackup (fileStream, mapping) {
     return promiseWriteToFileStream(fileStream, JSON.stringify(mapping))
         .then(() => promiseEndFile(fileStream));
 }
 
-function mappings ({client, index, type = null}) {
+function mappings (client, index, type) {
    return client.get({
-            index: index,
-            type: type,
+            index,
+            type,
             path: '_mapping'
-        }).then(response => {
-            if (!type) {
-                return response[index];
-            }
-            return response[type];
-        });
+        }).then(response => !type ? response[index] : response[type]);
+}
+
+function backupPath (path, index, type) {
+    return path + '/' + index + '_' + type + '_';
+}
+
+function filePaths (path, index, type) {
+    var base = backupPath(path, index, type);
+    return [base + 'documents.json', base + 'mapping.json'];
 }
 
 //Type Backup
 function backupType ({client, index, type, filePath}) {
-    var fileBase = filePath + '/' + index + '_' + type + '_',
-        docFileName = fileBase + 'documents.json',
-        mappingFileName = fileBase + 'mapping.json';
+    var [docFileName, mappingFileName] = filePaths(filePath, index, type);
     fs.mkdirSync(filePath);
-    return mappings({
-            client: client,
-            index: index,
-            type: type})
+    return mappings(client, index, type)
         .then(mapping => prom.join(
-            writeMappingBackup({
-                index: index,
-                name: type,
-                mapping: mapping,
-                fileStream: fs.createWriteStream(mappingFileName, {flags: 'w'})}),
-            documents({
-                client: client,
-                index: index,
-                type: type,
+            writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping),
+            backupDocuments({
+                docGetter: documentGetter({
+                    client,
+                    index,
+                    type
+                }),
                 fileStream: fs.createWriteStream(docFileName, {flags: 'w'})})))
         .then(() => {
             return [docFileName, mappingFileName];
@@ -121,14 +117,12 @@ function backupType ({client, index, type, filePath}) {
 
 //Index Backup
 function backupIndex (client, index, filePath) {
-    return mappings({
-            client: client,
-            index: index})
-        .then(mappings => prom.all(_.map(mappings, (data, name) => backupType({
-                    client: client,
-                    index: index,
-                    type: name,
-                    filePath: filePath}))))
+    return mappings(client, index)
+        .then(mappings => prom.all(_.map(mappings, (data, type) => backupType({
+            client,
+            index,
+            type,
+            filePath}))))
         .then(_.flatten); //pretty up those deeply nested file paths.
 }
 
@@ -152,25 +146,8 @@ function backupCluster (client, filePath) {
         .then(_.flatten); //pretty up those deeply nested file paths.
 }
 
-//Main function
-function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
-    var client = new Client({host: host, port: port});
-
-    //append timestamp for unique id
-    filePath += '/' + new Date().getTime();
-
-    return (() => { 
-        if (index && type) {
-            return backupType({client: client, index: index, type: type, filePath: filePath});
-        } else if (index) {
-            return backupIndex(client, index, filePath);
-        } else {
-            return backupCluster(client, filePath);
-        }
-    }()).then((files) => prom((fulfill, reject) => {
-        //Files written
-        process.stdout.write('\n' + files.join('\n'));
-
+function compress (filePath) {
+    return prom((fulfill, reject) => {
         //tar and gzip the directory
         fstream.Reader({path: filePath, type: 'Directory'})
             .pipe(tar.Pack())
@@ -178,13 +155,30 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
             .pipe(fstream.Writer(filePath + '.tar.gz'))
             .on('error', reject)
             .on('close', () => {
-                //delete temp files
-                rmdirR(filePath);
-
                 process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
-                fulfill();
+                fulfill(filePath);
             });
-    })).then(() => {}, error => console.log(error));
+    });
+}
+
+//Main function
+function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
+    var client = new Client({host, port});
+
+    //append timestamp for unique id
+    filePath += '/' + new Date().getTime();
+
+    return (() => { 
+        if (index && type) {
+            return backupType({client, index, type, filePath});
+        } else if (index) {
+            return backupIndex(client, index, filePath);
+        } else {
+            return backupCluster(client, filePath);
+        }
+    }()).then(files => (process.stdout.write('\n' + files.join('\n')), filePath))
+        .then(compress)
+        .then(rmdirR, error => console.log(error));
 }
 
 // Elasticsearch client
@@ -193,7 +187,7 @@ function Client ({host = 'localhost', port = 9200}) {
     this.port = port;
 }
 
-Client.prototype.get = function ({index = null, type = null, path, body = null}) {
+Client.prototype.get = function ({index, type, path, body}) {
     var path = [index, type, path].filter(val => val).join('/');
     return prom((fulfill, reject) => {
         var request = http.request({
