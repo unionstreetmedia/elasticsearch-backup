@@ -1,8 +1,14 @@
 var backup = require('./backup.js'), prom = require('./promiscuous-config.js');
-backup.run({
-  host: process.argv[2],
-  port: process.argv[3],
-  filePath: process.argv[4],
-  index: process.argv[5],
-  type: process.argv[6]
-});
+options = {};
+maybe(options, 'host', process.argv[2]);
+maybe(options, 'port', process.argv[3]);
+maybe(options, 'filePath', process.argv[4]);
+maybe(options, 'index', process.argv[5]);
+maybe(options, 'type', process.argv[6]);
+backup.run(options);
+function maybe(object, name, value) {
+  if (value) {
+    object[name] = value;
+  }
+  return object;
+}
