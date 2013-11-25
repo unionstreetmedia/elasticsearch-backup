@@ -13,7 +13,8 @@ var prom = require('promiscuous-tool'),
     fstream = require('fstream'),
     tar = require('tar');
 
-exports.run = backup;
+module.exports.pack = pack;
+module.exports.unpack = unpack;
 
 //Write to file stream and return promise
 function promiseWriteToFileStream (fileStream, data) {
@@ -174,6 +175,26 @@ function compress (filePath) {
     });
 }
 
+function extract (filePath, version) {
+    return prom((fulfill, reject) => {
+        var file = filePath + '/' + version + '.tar.gz';
+        //tar and gzip the directory
+        if (fs.existsSync(file)) {
+            fstream.Reader({path: file, type: 'file'})
+                .pipe(zlib.Gunzip())
+                .pipe(tar.Extract({path: filePath}))
+                .on('error', reject)
+                .on('close', () => {
+                    process.stdout.write('\nextracted to ' + filePath + '\n');
+                    fulfill(filePath);
+                });
+        } else {
+            process.stdout.write('\nNo file to extract to ' + filePath + '\n');
+            fulfill(filePath);
+        }
+    });
+}
+
 //Recursively delete a directory
 function rmdirR (path) {
     if (fs.existsSync(path)) {
@@ -198,8 +219,8 @@ function errorHandler (error) {
     return error
 }
 
-//Main function
-function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
+//Generate backup tar.gz
+function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
     var client = new Client({host, port});
 
     //append timestamp for unique id
@@ -216,4 +237,9 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
     }()).then(files => (process.stdout.write('\n' + files.join('\n')), filePath))
         .then(compress)
         .then(rmdirR, errorHandler);
+}
+
+//Extract and populate cluster from tar.gz
+function unpack ({host, port, filePath = 'temp', version}) {
+    return prom((fullfill, reject) => extract(filePath, version));
 }

@@ -2,7 +2,8 @@
 var zlib = require('zlib'), fs = require('fs');
 var Client = require('./client.js');
 var prom = require('promiscuous-tool'), _ = require('lodash'), fstream = require('fstream'), tar = require('tar');
-exports.run = backup;
+module.exports.pack = pack;
+module.exports.unpack = unpack;
 function promiseWriteToFileStream(fileStream, data) {
   return prom((function(fulfill, reject) {
     process.stdout.write('\rwriting to ' + fileStream.path + ' : ' + fileStream.bytesWritten + ' bytes');
@@ -140,6 +141,23 @@ function compress(filePath) {
     }
   }));
 }
+function extract(filePath, version) {
+  return prom((function(fulfill, reject) {
+    var file = filePath + '/' + version + '.tar.gz';
+    if (fs.existsSync(file)) {
+      fstream.Reader({
+        path: file,
+        type: 'file'
+      }).pipe(zlib.Gunzip()).pipe(tar.Extract({path: filePath})).on('error', reject).on('close', (function() {
+        process.stdout.write('\nextracted to ' + filePath + '\n');
+        fulfill(filePath);
+      }));
+    } else {
+      process.stdout.write('\nNo file to extract to ' + filePath + '\n');
+      fulfill(filePath);
+    }
+  }));
+}
 function rmdirR(path) {
   if (fs.existsSync(path)) {
     fs.readdirSync(path).forEach(function(file) {
@@ -161,7 +179,7 @@ function errorHandler(error) {
   }
   return error;
 }
-function backup($__3) {
+function pack($__3) {
   var host = "host"in $__3 ? $__3.host: 'localhost', port = "port"in $__3 ? $__3.port: 9200, index = $__3.index, type = $__3.type, filePath = "filePath"in $__3 ? $__3.filePath: 'temp';
   var client = new Client({
     host: host,
@@ -184,4 +202,10 @@ function backup($__3) {
   })()).then((function(files) {
     return (process.stdout.write('\n' + files.join('\n')), filePath);
   })).then(compress).then(rmdirR, errorHandler);
+}
+function unpack($__4) {
+  var host = $__4.host, port = $__4.port, filePath = "filePath"in $__4 ? $__4.filePath: 'temp', version = $__4.version;
+  return prom((function(fullfill, reject) {
+    return extract(filePath, version);
+  }));
 }
