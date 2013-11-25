@@ -1,4 +1,4 @@
-'user strict';
+'use strict';
 
 var http = require('http'),
     prom = require('promiscuous-tool'),
