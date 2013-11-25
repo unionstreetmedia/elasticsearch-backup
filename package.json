@@ -12,7 +12,8 @@
     "rsvp": "*",
     "promiscuous-tool": "*",
     "lodash": "*",
-    "fstream": "*"
+    "fstream": "*",
+    "tar": "*"
   },
   "devDependencies": {
     "traceur": "*",

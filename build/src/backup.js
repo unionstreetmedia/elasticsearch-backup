@@ -1,5 +1,5 @@
-'user strict';
-var http = require('http'), prom = require('promiscuous-tool'), _ = require('lodash'), fs = require('fs'), fstream = require('fstream'), zlib = require('zlib'), tar = require('tar');
+'use strict';
+var prom = require('promiscuous-tool'), Client = require('./client.js'), _ = require('lodash'), fs = require('fs'), fstream = require('fstream'), zlib = require('zlib'), tar = require('tar');
 exports.run = backup;
 function promiseWriteToFileStream(fileStream, data) {
   return prom((function(fulfill, reject) {
@@ -131,6 +131,19 @@ function compress(filePath) {
     }));
   }));
 }
+function rmdirR(path) {
+  if (fs.existsSync(path)) {
+    fs.readdirSync(path).forEach(function(file) {
+      var curPath = path + "/" + file;
+      if (fs.lstatSync(curPath).isDirectory()) {
+        rmdirR(curPath);
+      } else {
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(path);
+  }
+}
 function backup($__3) {
   var host = "host"in $__3 ? $__3.host: 'localhost', port = "port"in $__3 ? $__3.port: 9200, index = $__3.index, type = $__3.type, filePath = "filePath"in $__3 ? $__3.filePath: 'temp';
   var client = new Client({
@@ -156,57 +169,4 @@ function backup($__3) {
   })).then(compress).then(rmdirR, (function(error) {
     return console.log(error);
   }));
-}
-function Client($__4) {
-  var host = "host"in $__4 ? $__4.host: 'localhost', port = "port"in $__4 ? $__4.port: 9200;
-  this.host = host;
-  this.port = port;
-}
-Client.prototype.get = function($__5) {
-  var index = $__5.index, type = $__5.type, path = $__5.path, body = $__5.body;
-  var path = [index, type, path].filter((function(val) {
-    return val;
-  })).join('/');
-  return prom((function(fulfill, reject) {
-    var request = http.request({
-      host: this.host,
-      port: this.port,
-      path: path,
-      method: 'get',
-      headers: {'Content-Type': 'application/json'}
-    }, (function(response) {
-      if (response.statusCode == 200) {
-        var data = '';
-        response.on('data', (function(chunk) {
-          return data += chunk;
-        })).once('error', (function(error) {
-          return reject(error);
-        })).once('end', (function() {
-          return fulfill(JSON.parse(data));
-        }));
-      } else {
-        fail(response);
-      }
-    }));
-    if (body) {
-      request.write(JSON.stringify(body));
-    }
-    request.once('error', (function(error) {
-      return reject(error);
-    }));
-    request.end();
-  }).bind(this));
-};
-function rmdirR(path) {
-  if (fs.existsSync(path)) {
-    fs.readdirSync(path).forEach(function(file) {
-      var curPath = path + "/" + file;
-      if (fs.lstatSync(curPath).isDirectory()) {
-        rmdirR(curPath);
-      } else {
-        fs.unlinkSync(curPath);
-      }
-    });
-    fs.rmdirSync(path);
-  }
 }

@@ -1,7 +1,7 @@
 'use strict';
 
-var http = require('http'),
-    prom = require('promiscuous-tool'),
+var prom = require('promiscuous-tool'),
+    Client = require('./client.js'),
     _ = require('lodash'),
     fs = require('fs'),
     fstream = require('fstream'),
@@ -30,7 +30,7 @@ function promiseEndFile (fileStream) {
     });
 }
 
-//Return function for writing data to a file stream
+//Curried function for writing data to a file stream
 function writeDocuments (fileStream) {
     return data => {
         return promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join('\n'));
@@ -54,12 +54,11 @@ function documentGetter ({client, index, type, sortBy = '_Created'}) {
     });
 }
 
-//Document Backup
 function backupDocuments ({docGetter, fileStream, start = 0, size = 100}) {
     return docGetter(start, size)
         .then(data => prom.sequence([
             writeDocuments(fileStream),
-            (data) => {
+            data => {
                 if (start + size < data.hits.total) {
                     return backupDocuments({
                         docGetter,
@@ -79,6 +78,7 @@ function writeMappingBackup (fileStream, mapping) {
         .then(() => promiseEndFile(fileStream));
 }
 
+//Retrieve mappings from index or type
 function mappings (client, index, type) {
    return client.get({
             index,
@@ -87,16 +87,17 @@ function mappings (client, index, type) {
         }).then(response => !type ? response[index] : response[type]);
 }
 
+//Create file path string from base path, index and type
 function backupPath (path, index, type) {
     return path + '/' + index + '_' + type + '_';
 }
 
+//Create both document and mapping file paths
 function filePaths (path, index, type) {
     var base = backupPath(path, index, type);
     return [base + 'documents.json', base + 'mapping.json'];
 }
 
-//Type Backup
 function backupType ({client, index, type, filePath}) {
     var [docFileName, mappingFileName] = filePaths(filePath, index, type);
     fs.mkdirSync(filePath);
@@ -115,7 +116,6 @@ function backupType ({client, index, type, filePath}) {
         });
 }
 
-//Index Backup
 function backupIndex (client, index, filePath) {
     return mappings(client, index)
         .then(mappings => prom.all(_.map(mappings, (data, type) => backupType({
@@ -138,7 +138,6 @@ function clusterStatus (client) {
         });
 }
 
-//Cluster Backup
 function backupCluster (client, filePath) {
     return clusterStatus(client)
         .then(indicesFromStatus)
@@ -161,6 +160,21 @@ function compress (filePath) {
     });
 }
 
+//Recursively delete a directory
+function rmdirR (path) {
+    if (fs.existsSync(path)) {
+        fs.readdirSync(path).forEach(function(file){
+            var curPath = path + "/" + file;
+            if (fs.lstatSync(curPath).isDirectory()) { // recurse
+                rmdirR(curPath);
+            } else { // delete file
+                fs.unlinkSync(curPath);
+            }
+        });
+        fs.rmdirSync(path);
+    }
+}
+
 //Main function
 function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
     var client = new Client({host, port});
@@ -179,53 +193,4 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
     }()).then(files => (process.stdout.write('\n' + files.join('\n')), filePath))
         .then(compress)
         .then(rmdirR, error => console.log(error));
-}
-
-// Elasticsearch client
-function Client ({host = 'localhost', port = 9200}) {
-    this.host = host;
-    this.port = port;
-}
-
-Client.prototype.get = function ({index, type, path, body}) {
-    var path = [index, type, path].filter(val => val).join('/');
-    return prom((fulfill, reject) => {
-        var request = http.request({
-            host: this.host,
-            port: this.port,
-            path: path,
-            method: 'get',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }, response => {
-            if (response.statusCode == 200) {
-                var data = '';
-                response.on('data', chunk => data += chunk)
-                    .once('error', error => reject(error))
-                    .once('end', () => fulfill(JSON.parse(data)));
-            } else {
-                fail(response);
-            }
-        });
-        if (body) {
-            request.write(JSON.stringify(body));
-        }
-        request.once('error', error => reject(error));
-        request.end();
-    });
-}
-
-function rmdirR (path) {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach(function(file){
-            var curPath = path + "/" + file;
-            if (fs.lstatSync(curPath).isDirectory()) { // recurse
-                rmdirR(curPath);
-            } else { // delete file
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(path);
-    }
 }
