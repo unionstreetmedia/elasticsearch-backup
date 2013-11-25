@@ -29,7 +29,7 @@ function promiseEndFile (fileStream) {
 //Return function for writing data to a file stream
 function writeDocuments (fileStream) {
     return data => {
-        return promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join(',\n'));
+        return promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join('\n'));
     };
 }
 
