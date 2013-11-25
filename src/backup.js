@@ -1,11 +1,16 @@
 'use strict';
 
+//Standard Library
+var zlib = require('zlib'),
+    fs = require('fs');
+
+//Internal
+var Client = require('./client.js');
+
+//External
 var prom = require('promiscuous-tool'),
-    Client = require('./client.js'),
     _ = require('lodash'),
-    fs = require('fs'),
     fstream = require('fstream'),
-    zlib = require('zlib'),
     tar = require('tar');
 
 exports.run = backup;
@@ -72,7 +77,6 @@ function backupDocuments ({docGetter, fileStream, start = 0, size = 100}) {
             }], data));
 }
 
-//Write mapping backup files
 function writeMappingBackup (fileStream, mapping) {
     return promiseWriteToFileStream(fileStream, JSON.stringify(mapping))
         .then(() => promiseEndFile(fileStream));

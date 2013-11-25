@@ -1,4 +1,6 @@
-var http = require('http'), prom = require('promiscuous-tool');
+'use strict';
+var http = require('http');
+var prom = require('promiscuous-tool');
 module.exports = Client;
 function Client($__4) {
   var host = "host"in $__4 ? $__4.host: 'localhost', port = "port"in $__4 ? $__4.port: 9200;

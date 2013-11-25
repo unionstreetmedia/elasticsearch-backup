@@ -1,5 +1,10 @@
-var http = require('http'),
-    prom = require('promiscuous-tool');
+'use strict';
+
+//Standard library
+var http = require('http');
+
+//External
+var prom = require('promiscuous-tool');
 
 module.exports = Client;
 

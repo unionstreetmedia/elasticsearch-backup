@@ -6,8 +6,6 @@ var backup = require('../build/src/backup.js'),
     prom = require('../build/src/promiscuous-config.js'),
     options = {};
 
-console.log(process.argv);
-
 maybe(options, 'host', process.argv[2]);                                                               
 maybe(options, 'port', process.argv[3]);
 maybe(options, 'filePath', process.argv[4]);                                                           

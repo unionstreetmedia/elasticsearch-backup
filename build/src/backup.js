@@ -1,5 +1,7 @@
 'use strict';
-var prom = require('promiscuous-tool'), Client = require('./client.js'), _ = require('lodash'), fs = require('fs'), fstream = require('fstream'), zlib = require('zlib'), tar = require('tar');
+var zlib = require('zlib'), fs = require('fs');
+var Client = require('./client.js');
+var prom = require('promiscuous-tool'), _ = require('lodash'), fstream = require('fstream'), tar = require('tar');
 exports.run = backup;
 function promiseWriteToFileStream(fileStream, data) {
   return prom((function(fulfill, reject) {
