@@ -8,6 +8,12 @@ var http = require('http'),
 
 exports.run = backup;
 
+process.on('uncaughtException',function(e) {
+    //Got additional debugging
+    console.log("Caught unhandled exception: " + e);
+    console.log(" ---> : " + e.stack);
+});
+
 //Write to file stream and return promise
 function promiseWriteToFileStream (fileStream, data) {
     return prom((fulfill, reject) => {
@@ -109,10 +115,7 @@ function backupType ({client, index, type, filePath}) {
                 type: type,
                 fileStream: fs.createWriteStream(docFileName, {flags: 'w'})})))
         .then(() => {
-            process.stdout.write('\nwrote: ' + docFileName);
-            process.stdout.write('\nwrote: ' + mappingFileName);
-        }, (...args) => {
-            process.stdout.write('\n' + args);
+            return [docFileName, mappingFileName];
         });
 }
 
@@ -125,11 +128,12 @@ function backupIndex (client, index, filePath) {
                     client: client,
                     index: index,
                     type: name,
-                    filePath: filePath}))));
+                    filePath: filePath}))))
+        .then(_.flatten); //pretty up those deeply nested file paths.
 }
 
-//Retrieve indexes from cluster status
-function indexesFromStatus (status) {
+//Retrieve indices from cluster status
+function indicesFromStatus (status) {
     return _.keys(status.indices);
 }
 
@@ -143,8 +147,9 @@ function clusterStatus (client) {
 //Cluster Backup
 function backupCluster (client, filePath) {
     return clusterStatus(client)
-        .then(indexesFromStatus)
-        .then(indexes => prom.all(_.map(indexes, name => backupIndex(client, name, filePath))));
+        .then(indicesFromStatus)
+        .then(indices => prom.all(_.map(indices, name => backupIndex(client, name, filePath))))
+        .then(_.flatten); //pretty up those deeply nested file paths.
 }
 
 //Main function
@@ -162,7 +167,10 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
         } else {
             return backupCluster(client, filePath);
         }
-    }()).then(() => prom((fulfill, reject) => {
+    }()).then((files) => prom((fulfill, reject) => {
+        //Files written
+        process.stdout.write('\n' + files.join('\n'));
+
         //tar and gzip the directory
         fstream.Reader({path: filePath, type: 'Directory'})
             .pipe(tar.Pack())
@@ -176,7 +184,7 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
                 process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
                 fulfill();
             });
-    }), (error) => console.log(error));
+    })).then(() => {}, error => console.log(error));
 }
 
 // Elasticsearch client

@@ -1,5 +1,9 @@
 var http = require('http'), prom = require('promiscuous-tool'), _ = require('lodash'), fs = require('fs'), fstream = require('fstream'), zlib = require('zlib'), tar = require('tar');
 exports.run = backup;
+process.on('uncaughtException', function(e) {
+  console.log("Caught unhandled exception: " + e);
+  console.log(" ---> : " + e.stack);
+});
 function promiseWriteToFileStream(fileStream, data) {
   return prom((function(fulfill, reject) {
     process.stdout.write('\rwriting to ' + fileStream.path + ' : ' + fileStream.bytesWritten + ' bytes');
@@ -23,8 +27,8 @@ function writeDocuments(fileStream) {
     return promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join('\n'));
   });
 }
-function documents($__1) {
-  var client = $__1.client, index = $__1.index, type = $__1.type, start = "start"in $__1 ? $__1.start: 0, size = "size"in $__1 ? $__1.size: 100, sortBy = "sortBy"in $__1 ? $__1.sortBy: '_Created', fileStream = $__1.fileStream;
+function documents($__0) {
+  var client = $__0.client, index = $__0.index, type = $__0.type, start = "start"in $__0 ? $__0.start: 0, size = "size"in $__0 ? $__0.size: 100, sortBy = "sortBy"in $__0 ? $__0.sortBy: '_Created', fileStream = $__0.fileStream;
   return client.get({
     index: index,
     type: type,
@@ -53,14 +57,14 @@ function documents($__1) {
     })], data);
   }));
 }
-function writeMappingBackup($__2) {
-  var fileStream = $__2.fileStream, index = $__2.index, name = $__2.name, mapping = $__2.mapping;
+function writeMappingBackup($__1) {
+  var fileStream = $__1.fileStream, index = $__1.index, name = $__1.name, mapping = $__1.mapping;
   return promiseWriteToFileStream(fileStream, JSON.stringify(mapping)).then((function() {
     return promiseEndFile(fileStream);
   }));
 }
-function mappings($__3) {
-  var client = $__3.client, index = $__3.index, type = "type"in $__3 ? $__3.type: null;
+function mappings($__2) {
+  var client = $__2.client, index = $__2.index, type = "type"in $__2 ? $__2.type: null;
   return client.get({
     index: index,
     type: type,
@@ -72,8 +76,8 @@ function mappings($__3) {
     return response[type];
   }));
 }
-function backupType($__4) {
-  var client = $__4.client, index = $__4.index, type = $__4.type, filePath = $__4.filePath;
+function backupType($__3) {
+  var client = $__3.client, index = $__3.index, type = $__3.type, filePath = $__3.filePath;
   var fileBase = filePath + '/' + index + '_' + type + '_', docFileName = fileBase + 'documents.json', mappingFileName = fileBase + 'mapping.json';
   fs.mkdirSync(filePath);
   return mappings({
@@ -93,11 +97,7 @@ function backupType($__4) {
       fileStream: fs.createWriteStream(docFileName, {flags: 'w'})
     }));
   })).then((function() {
-    process.stdout.write('\nwrote: ' + docFileName);
-    process.stdout.write('\nwrote: ' + mappingFileName);
-  }), (function() {
-    for (var args = [], $__0 = 0; $__0 < arguments.length; $__0++) args[$__0] = arguments[$__0];
-    process.stdout.write('\n' + args);
+    return [docFileName, mappingFileName];
   }));
 }
 function backupIndex(client, index, filePath) {
@@ -113,23 +113,23 @@ function backupIndex(client, index, filePath) {
         filePath: filePath
       });
     })));
-  }));
+  })).then(_.flatten);
 }
-function indexesFromStatus(status) {
+function indicesFromStatus(status) {
   return _.keys(status.indices);
 }
 function clusterStatus(client) {
   return client.get({path: '_status'});
 }
 function backupCluster(client, filePath) {
-  return clusterStatus(client).then(indexesFromStatus).then((function(indexes) {
-    return prom.all(_.map(indexes, (function(name) {
+  return clusterStatus(client).then(indicesFromStatus).then((function(indices) {
+    return prom.all(_.map(indices, (function(name) {
       return backupIndex(client, name, filePath);
     })));
-  }));
+  })).then(_.flatten);
 }
-function backup($__5) {
-  var host = "host"in $__5 ? $__5.host: 'localhost', port = "port"in $__5 ? $__5.port: 9200, index = $__5.index, type = $__5.type, filePath = "filePath"in $__5 ? $__5.filePath: 'temp';
+function backup($__4) {
+  var host = "host"in $__4 ? $__4.host: 'localhost', port = "port"in $__4 ? $__4.port: 9200, index = $__4.index, type = $__4.type, filePath = "filePath"in $__4 ? $__4.filePath: 'temp';
   var client = new Client({
     host: host,
     port: port
@@ -148,8 +148,9 @@ function backup($__5) {
     } else {
       return backupCluster(client, filePath);
     }
-  })()).then((function() {
+  })()).then((function(files) {
     return prom((function(fulfill, reject) {
+      process.stdout.write('\n' + files.join('\n'));
       fstream.Reader({
         path: filePath,
         type: 'Directory'
@@ -159,17 +160,17 @@ function backup($__5) {
         fulfill();
       }));
     }));
-  }), (function(error) {
+  })).then((function() {}), (function(error) {
     return console.log(error);
   }));
 }
-function Client($__6) {
-  var host = "host"in $__6 ? $__6.host: 'localhost', port = "port"in $__6 ? $__6.port: 9200;
+function Client($__5) {
+  var host = "host"in $__5 ? $__5.host: 'localhost', port = "port"in $__5 ? $__5.port: 9200;
   this.host = host;
   this.port = port;
 }
-Client.prototype.get = function($__7) {
-  var index = "index"in $__7 ? $__7.index: null, type = "type"in $__7 ? $__7.type: null, path = $__7.path, body = "body"in $__7 ? $__7.body: null;
+Client.prototype.get = function($__6) {
+  var index = "index"in $__6 ? $__6.index: null, type = "type"in $__6 ? $__6.type: null, path = $__6.path, body = "body"in $__6 ? $__6.body: null;
   var path = [index, type, path].filter((function(val) {
     return val;
   })).join('/');
