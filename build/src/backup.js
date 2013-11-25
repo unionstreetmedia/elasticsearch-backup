@@ -1,4 +1,4 @@
-var http = require('http'), prom = require('promiscuous-tool'), rsvp = require('rsvp'), _ = require('lodash'), fs = require('fs');
+var http = require('http'), prom = require('promiscuous-tool'), rsvp = require('rsvp'), _ = require('lodash'), fs = require('fs'), fstream = require('fstream'), zlib = require('zlib'), tar = require('tar');
 exports.run = backup;
 function promiseWriteToFileStream(fileStream, data) {
   return new rsvp.Promise((function(fulfill, reject) {
@@ -74,8 +74,8 @@ function mappings($__3) {
 }
 function backupType($__4) {
   var client = $__4.client, index = $__4.index, type = $__4.type, filePath = $__4.filePath;
-  var id = new Date().getTime(), dirBase = filePath + '/' + id + '/', fileBase = dirBase + index + '_' + type + '_', docFileName = fileBase + 'documents.json', mappingFileName = fileBase + 'mapping.json';
-  fs.mkdirSync(dirBase);
+  var fileBase = filePath + '/' + index + '_' + type + '_', docFileName = fileBase + 'documents.json', mappingFileName = fileBase + 'mapping.json';
+  fs.mkdirSync(filePath);
   return mappings({
     client: client,
     index: index,
@@ -134,6 +134,7 @@ function backup($__5) {
     host: host,
     port: port
   });
+  filePath += '/' + new Date().getTime();
   return ((function() {
     if (index && type) {
       return backupType({
@@ -147,7 +148,17 @@ function backup($__5) {
     } else {
       return backupCluster(client, filePath);
     }
-  })());
+  })()).then((function() {
+    fstream.Reader({
+      path: filePath,
+      type: 'Directory'
+    }).pipe(tar.Pack()).pipe(zlib.Gzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('close', function() {
+      rmdirR(filePath);
+      process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
+    });
+  }), (function(error) {
+    return console.log(error);
+  }));
 }
 function Client($__6) {
   var host = "host"in $__6 ? $__6.host: 'localhost', port = "port"in $__6 ? $__6.port: 9200;
@@ -189,3 +200,16 @@ Client.prototype.get = function($__7) {
     request.end();
   }).bind(this));
 };
+function rmdirR(path) {
+  if (fs.existsSync(path)) {
+    fs.readdirSync(path).forEach(function(file) {
+      var curPath = path + "/" + file;
+      if (fs.lstatSync(curPath).isDirectory()) {
+        rmdirR(curPath);
+      } else {
+        fs.unlinkSync(curPath);
+      }
+    });
+    fs.rmdirSync(path);
+  }
+}

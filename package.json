@@ -11,7 +11,8 @@
   "dependencies": {
     "rsvp": "*",
     "promiscuous-tool": "*",
-    "lodash": "*"
+    "lodash": "*",
+    "fstream": "*"
   },
   "devDependencies": {
     "traceur": "*",

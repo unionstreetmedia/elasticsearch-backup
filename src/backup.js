@@ -2,7 +2,10 @@ var http = require('http'),
     prom = require('promiscuous-tool'),
     rsvp = require('rsvp'),
     _ = require('lodash'),
-    fs = require('fs');
+    fs = require('fs'),
+    fstream = require('fstream'),
+    zlib = require('zlib'),
+    tar = require('tar');
 
 exports.run = backup;
 
@@ -87,12 +90,10 @@ function mappings ({client, index, type = null}) {
 
 //Type Backup
 function backupType ({client, index, type, filePath}) {
-    var id = new Date().getTime(),
-        dirBase = filePath + '/' + id + '/',
-        fileBase =  dirBase + index + '_' + type + '_',
+    var fileBase = filePath + '/' + index + '_' + type + '_',
         docFileName = fileBase + 'documents.json',
         mappingFileName = fileBase + 'mapping.json';
-    fs.mkdirSync(dirBase);
+    fs.mkdirSync(filePath);
     return mappings({
             client: client,
             index: index,
@@ -122,10 +123,10 @@ function backupIndex (client, index, filePath) {
             client: client,
             index: index})
         .then(mappings => prom.all(_.map(mappings, (data, name) => backupType({
-            client: client,
-            index: index,
-            type: name,
-            filePath: filePath}))));
+                    client: client,
+                    index: index,
+                    type: name,
+                    filePath: filePath}))));
 }
 
 //Retrieve indexes from cluster status
@@ -150,6 +151,10 @@ function backupCluster (client, filePath) {
 //Main function
 function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
     var client = new Client({host: host, port: port});
+
+    //append timestamp for unique id
+    filePath += '/' + new Date().getTime();
+
     return (() => { 
         if (index && type) {
             return backupType({client: client, index: index, type: type, filePath: filePath});
@@ -158,7 +163,19 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
         } else {
             return backupCluster(client, filePath);
         }
-    }())
+    }()).then(() => {
+        //tar and gzip the directory
+        fstream.Reader({path: filePath, type: 'Directory'})
+            .pipe(tar.Pack())
+            .pipe(zlib.Gzip())
+            .pipe(fstream.Writer(filePath + '.tar.gz'))
+            .on('close', function () {
+                //delete temp files
+                rmdirR(filePath);
+
+                process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
+            });
+    }, (error) => console.log(error));
 }
 
 // Elasticsearch client
@@ -194,4 +211,18 @@ Client.prototype.get = function ({index = null, type = null, path, body = null})
         request.once('error', error => reject(error));
         request.end();
     });
+}
+
+function rmdirR (path) {
+    if (fs.existsSync(path)) {
+        fs.readdirSync(path).forEach(function(file){
+            var curPath = path + "/" + file;
+            if (fs.lstatSync(curPath).isDirectory()) { // recurse
+                rmdirR(curPath);
+            } else { // delete file
+                fs.unlinkSync(curPath);
+            }
+        });
+        fs.rmdirSync(path);
+    }
 }
