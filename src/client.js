@@ -1,6 +1,8 @@
 var http = require('http'),
     prom = require('promiscuous-tool');
 
+module.exports = Client;
+
 // Elasticsearch client
 function Client ({host = 'localhost', port = 9200}) {
     this.host = host;
@@ -35,5 +37,3 @@ Client.prototype.get = function ({index, type, path, body}) {
         request.end();
     });
 }
-
-module.exports = Client;
