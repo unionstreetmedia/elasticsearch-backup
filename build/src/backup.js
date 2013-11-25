@@ -74,7 +74,8 @@ function mappings($__3) {
 }
 function backupType($__4) {
   var client = $__4.client, index = $__4.index, type = $__4.type, filePath = $__4.filePath;
-  var id = new Date().getTime(), fileBase = filePath + '/' + index + '_' + type + '_' + id + '_', docFileName = fileBase + 'documents.json', mappingFileName = fileBase + 'mapping.json';
+  var id = new Date().getTime(), dirBase = filePath + '/' + id + '/', fileBase = dirBase + index + '_' + type + '_', docFileName = fileBase + 'documents.json', mappingFileName = fileBase + 'mapping.json';
+  fs.mkdirSync(dirBase);
   return mappings({
     client: client,
     index: index,

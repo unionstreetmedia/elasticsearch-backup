@@ -88,9 +88,11 @@ function mappings ({client, index, type = null}) {
 //Type Backup
 function backupType ({client, index, type, filePath}) {
     var id = new Date().getTime(),
-        fileBase = filePath + '/' + index + '_' + type + '_' + id + '_',
+        dirBase = filePath + '/' + id + '/',
+        fileBase =  dirBase + index + '_' + type + '_',
         docFileName = fileBase + 'documents.json',
         mappingFileName = fileBase + 'mapping.json';
+    fs.mkdirSync(dirBase);
     return mappings({
             client: client,
             index: index,
