@@ -1,6 +1,5 @@
 var http = require('http'),
     prom = require('promiscuous-tool'),
-    rsvp = require('rsvp'),
     _ = require('lodash'),
     fs = require('fs'),
     fstream = require('fstream'),
@@ -11,7 +10,7 @@ exports.run = backup;
 
 //Write to file stream and return promise
 function promiseWriteToFileStream (fileStream, data) {
-    return new rsvp.Promise((fulfill, reject) => {
+    return prom((fulfill, reject) => {
         process.stdout.write('\rwriting to ' + fileStream.path + ' : ' + fileStream.bytesWritten + ' bytes');
         if (fileStream.write(data)) {
             fulfill(fileStream);
@@ -23,7 +22,7 @@ function promiseWriteToFileStream (fileStream, data) {
 
 //End file stream and return promise
 function promiseEndFile (fileStream) {
-    return new rsvp.Promise((fulfill, reject) => {
+    return prom((fulfill, reject) => {
         fileStream.once('finish', fulfill);
         fileStream.end();
     });
@@ -163,19 +162,21 @@ function backup ({host = 'localhost', port = 9200, index, type, filePath = 'temp
         } else {
             return backupCluster(client, filePath);
         }
-    }()).then(() => {
+    }()).then(() => prom((fulfill, reject) => {
         //tar and gzip the directory
         fstream.Reader({path: filePath, type: 'Directory'})
             .pipe(tar.Pack())
             .pipe(zlib.Gzip())
             .pipe(fstream.Writer(filePath + '.tar.gz'))
-            .on('close', function () {
+            .on('error', reject)
+            .on('close', () => {
                 //delete temp files
                 rmdirR(filePath);
 
                 process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
+                fulfill();
             });
-    }, (error) => console.log(error));
+    }), (error) => console.log(error));
 }
 
 // Elasticsearch client
@@ -186,7 +187,7 @@ function Client ({host = 'localhost', port = 9200}) {
 
 Client.prototype.get = function ({index = null, type = null, path, body = null}) {
     var path = [index, type, path].filter(val => val).join('/');
-    return new rsvp.Promise((fulfill, reject) => {
+    return prom((fulfill, reject) => {
         var request = http.request({
             host: this.host,
             port: this.port,

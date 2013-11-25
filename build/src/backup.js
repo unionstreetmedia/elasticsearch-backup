@@ -1,7 +1,7 @@
-var http = require('http'), prom = require('promiscuous-tool'), rsvp = require('rsvp'), _ = require('lodash'), fs = require('fs'), fstream = require('fstream'), zlib = require('zlib'), tar = require('tar');
+var http = require('http'), prom = require('promiscuous-tool'), _ = require('lodash'), fs = require('fs'), fstream = require('fstream'), zlib = require('zlib'), tar = require('tar');
 exports.run = backup;
 function promiseWriteToFileStream(fileStream, data) {
-  return new rsvp.Promise((function(fulfill, reject) {
+  return prom((function(fulfill, reject) {
     process.stdout.write('\rwriting to ' + fileStream.path + ' : ' + fileStream.bytesWritten + ' bytes');
     if (fileStream.write(data)) {
       fulfill(fileStream);
@@ -13,7 +13,7 @@ function promiseWriteToFileStream(fileStream, data) {
   }));
 }
 function promiseEndFile(fileStream) {
-  return new rsvp.Promise((function(fulfill, reject) {
+  return prom((function(fulfill, reject) {
     fileStream.once('finish', fulfill);
     fileStream.end();
   }));
@@ -149,13 +149,16 @@ function backup($__5) {
       return backupCluster(client, filePath);
     }
   })()).then((function() {
-    fstream.Reader({
-      path: filePath,
-      type: 'Directory'
-    }).pipe(tar.Pack()).pipe(zlib.Gzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('close', function() {
-      rmdirR(filePath);
-      process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
-    });
+    return prom((function(fulfill, reject) {
+      fstream.Reader({
+        path: filePath,
+        type: 'Directory'
+      }).pipe(tar.Pack()).pipe(zlib.Gzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('error', reject).on('close', (function() {
+        rmdirR(filePath);
+        process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
+        fulfill();
+      }));
+    }));
   }), (function(error) {
     return console.log(error);
   }));
@@ -170,7 +173,7 @@ Client.prototype.get = function($__7) {
   var path = [index, type, path].filter((function(val) {
     return val;
   })).join('/');
-  return new rsvp.Promise((function(fulfill, reject) {
+  return prom((function(fulfill, reject) {
     var request = http.request({
       host: this.host,
       port: this.port,
