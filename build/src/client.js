@@ -30,7 +30,7 @@ Client.prototype.get = function($__5) {
           return fulfill(JSON.parse(data));
         }));
       } else {
-        fail(response);
+        reject(response);
       }
     }));
     if (body) {

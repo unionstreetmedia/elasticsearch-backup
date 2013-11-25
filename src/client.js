@@ -32,7 +32,7 @@ Client.prototype.get = function ({index, type, path, body}) {
                     .once('error', error => reject(error))
                     .once('end', () => fulfill(JSON.parse(data)));
             } else {
-                fail(response);
+                reject(response);
             }
         });
         if (body) {

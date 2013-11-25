@@ -84,7 +84,7 @@ function writeMappingBackup (fileStream, mapping) {
 
 //Retrieve mappings from index or type
 function mappings (client, index, type) {
-   return client.get({
+    return client.get({
             index,
             type,
             path: '_mapping'
@@ -104,7 +104,9 @@ function filePaths (path, index, type) {
 
 function backupType ({client, index, type, filePath}) {
     var [docFileName, mappingFileName] = filePaths(filePath, index, type);
-    fs.mkdirSync(filePath);
+    if (!fs.existsSync(filePath)) {
+        fs.mkdirSync(filePath);
+    }
     return mappings(client, index, type)
         .then(mapping => prom.join(
             writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping),
@@ -122,11 +124,14 @@ function backupType ({client, index, type, filePath}) {
 
 function backupIndex (client, index, filePath) {
     return mappings(client, index)
-        .then(mappings => prom.all(_.map(mappings, (data, type) => backupType({
-            client,
-            index,
-            type,
-            filePath}))))
+        //Backup type if it exists
+        .then(mappings => _.keys(mappings).length
+            ? prom.all(_.map(mappings, (data, type) => backupType({
+                client,
+                index,
+                type,
+                filePath})))
+            : [] )
         .then(_.flatten); //pretty up those deeply nested file paths.
 }
 
@@ -152,15 +157,20 @@ function backupCluster (client, filePath) {
 function compress (filePath) {
     return prom((fulfill, reject) => {
         //tar and gzip the directory
-        fstream.Reader({path: filePath, type: 'Directory'})
-            .pipe(tar.Pack())
-            .pipe(zlib.Gzip())
-            .pipe(fstream.Writer(filePath + '.tar.gz'))
-            .on('error', reject)
-            .on('close', () => {
-                process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
-                fulfill(filePath);
-            });
+        if (fs.existsSync(filePath)) {
+            fstream.Reader({path: filePath, type: 'Directory'})
+                .pipe(tar.Pack())
+                .pipe(zlib.Gzip())
+                .pipe(fstream.Writer(filePath + '.tar.gz'))
+                .on('error', reject)
+                .on('close', () => {
+                    process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
+                    fulfill(filePath);
+                });
+        } else {
+            process.stdout.write('\nNo file to compressed to ' + filePath + '.tar.gz \n');
+            fulfill(filePath);
+        }
     });
 }
 

@@ -83,7 +83,9 @@ function filePaths(path, index, type) {
 function backupType($__2) {
   var client = $__2.client, index = $__2.index, type = $__2.type, filePath = $__2.filePath;
   var $__3 = filePaths(filePath, index, type), docFileName = $__3[0], mappingFileName = $__3[1];
-  fs.mkdirSync(filePath);
+  if (!fs.existsSync(filePath)) {
+    fs.mkdirSync(filePath);
+  }
   return mappings(client, index, type).then((function(mapping) {
     return prom.join(writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping), backupDocuments({
       docGetter: documentGetter({
@@ -99,14 +101,14 @@ function backupType($__2) {
 }
 function backupIndex(client, index, filePath) {
   return mappings(client, index).then((function(mappings) {
-    return prom.all(_.map(mappings, (function(data, type) {
+    return _.keys(mappings).length ? prom.all(_.map(mappings, (function(data, type) {
       return backupType({
         client: client,
         index: index,
         type: type,
         filePath: filePath
       });
-    })));
+    }))): [];
   })).then(_.flatten);
 }
 function indicesFromStatus(status) {
@@ -124,13 +126,18 @@ function backupCluster(client, filePath) {
 }
 function compress(filePath) {
   return prom((function(fulfill, reject) {
-    fstream.Reader({
-      path: filePath,
-      type: 'Directory'
-    }).pipe(tar.Pack()).pipe(zlib.Gzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('error', reject).on('close', (function() {
-      process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
+    if (fs.existsSync(filePath)) {
+      fstream.Reader({
+        path: filePath,
+        type: 'Directory'
+      }).pipe(tar.Pack()).pipe(zlib.Gzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('error', reject).on('close', (function() {
+        process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
+        fulfill(filePath);
+      }));
+    } else {
+      process.stdout.write('\nNo file to compressed to ' + filePath + '.tar.gz \n');
       fulfill(filePath);
-    }));
+    }
   }));
 }
 function rmdirR(path) {
