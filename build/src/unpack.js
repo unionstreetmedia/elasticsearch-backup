@@ -14,7 +14,7 @@ function version(filePath, name) {
 }
 function unpack($__6) {
   var host = $__6.host, port = $__6.port, filePath = "filePath"in $__6 ? $__6.filePath: 'temp', name = "name"in $__6 ? $__6.name: 'latest';
-  return prom((function(fullfill, reject) {
-    return util.extract(filePath + '/' + version(filePath, name));
-  }));
+  return util.extract(filePath + '/' + version(filePath, name)).then((function() {
+    return console.log('file extracted');
+  }), util.errorHandler);
 }

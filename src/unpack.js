@@ -29,5 +29,6 @@ function version (filePath, name) {
 
 //Extract and populate cluster from tar.gz
 function unpack ({host, port, filePath = 'temp', name = 'latest'}) {
-    return prom((fullfill, reject) => util.extract(filePath + '/' + version(filePath, name)));
+    return util.extract(filePath + '/' + version(filePath, name))
+        .then(() => console.log('file extracted'), util.errorHandler);
 }
