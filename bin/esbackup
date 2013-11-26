@@ -2,8 +2,7 @@
                                                                                                        
 'use strict';                                                                                          
                                                                                                        
-var backup = require('../build/src/backup.js'),                                                         
-    prom = require('../build/src/promiscuous-config.js'),
+var prom = require('../build/src/promiscuous-config.js'),
     options = {};
 
 maybe(options, 'host', process.argv[3]);                                                               
@@ -14,10 +13,10 @@ switch (process.argv[2]) {
     case 'pack':
         maybe(options, 'index', process.argv[6]);                                                              
         maybe(options, 'type', process.argv[7]);                                                               
-        return backup.pack(options);
+        return require('../build/src/pack.js')(options);
     case 'unpack':
         maybe(options, 'version', process.argv[6]);                                                              
-        return backup.unpack(options);
+        return require('../build/src/unpack.js')(options);
     default:
         return console.log('WTF, where are your arguments');
 }

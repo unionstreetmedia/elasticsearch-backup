@@ -1,45 +1,22 @@
 'use strict';
 
 //Standard Library
-var zlib = require('zlib'),
-    fs = require('fs');
+var fs = require('fs');
 
 //Internal
-var Client = require('./client.js');
+var Client = require('./client.js'),
+    util = require('./util.js');
 
 //External
 var prom = require('promiscuous-tool'),
-    _ = require('lodash'),
-    fstream = require('fstream'),
-    tar = require('tar');
+    _ = require('lodash');
 
-module.exports.pack = pack;
-module.exports.unpack = unpack;
-
-//Write to file stream and return promise
-function promiseWriteToFileStream (fileStream, data) {
-    return prom((fulfill, reject) => {
-        process.stdout.write('\rwriting to ' + fileStream.path + ' : ' + fileStream.bytesWritten + ' bytes');
-        if (fileStream.write(data)) {
-            fulfill(fileStream);
-        } else {
-            fileStream.once('drain', () => fulfill(fileStream));
-        }
-    });
-}
-
-//End file stream and return promise
-function promiseEndFile (fileStream) {
-    return prom((fulfill, reject) => {
-        fileStream.once('finish', fulfill);
-        fileStream.end();
-    });
-}
+module.exports = pack;
 
 //Curried function for writing data to a file stream
 function writeDocuments (fileStream) {
     return data => {
-        return promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join('\n'));
+        return util.promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join('\n'));
     };
 }
 
@@ -73,14 +50,14 @@ function backupDocuments ({docGetter, fileStream, start = 0, size = 100}) {
                         start: start + size
                     });
                 } else {
-                    return promiseEndFile(fileStream);
+                    return util.promiseEndFile(fileStream);
                 }
             }], data));
 }
 
 function writeMappingBackup (fileStream, mapping) {
-    return promiseWriteToFileStream(fileStream, JSON.stringify(mapping))
-        .then(() => promiseEndFile(fileStream));
+    return util.promiseWriteToFileStream(fileStream, JSON.stringify(mapping))
+        .then(() => util.promiseEndFile(fileStream));
 }
 
 //Retrieve mappings from index or type
@@ -155,70 +132,6 @@ function backupCluster (client, filePath) {
         .then(_.flatten); //pretty up those deeply nested file paths.
 }
 
-function compress (filePath) {
-    return prom((fulfill, reject) => {
-        //tar and gzip the directory
-        if (fs.existsSync(filePath)) {
-            fstream.Reader({path: filePath, type: 'Directory'})
-                .pipe(tar.Pack())
-                .pipe(zlib.Gzip())
-                .pipe(fstream.Writer(filePath + '.tar.gz'))
-                .on('error', reject)
-                .on('close', () => {
-                    process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
-                    fulfill(filePath);
-                });
-        } else {
-            process.stdout.write('\nNo file to compressed to ' + filePath + '.tar.gz \n');
-            fulfill(filePath);
-        }
-    });
-}
-
-function extract (filePath, version) {
-    return prom((fulfill, reject) => {
-        var file = filePath + '/' + version + '.tar.gz';
-        //tar and gzip the directory
-        if (fs.existsSync(file)) {
-            fstream.Reader({path: file, type: 'file'})
-                .pipe(zlib.Gunzip())
-                .pipe(tar.Extract({path: filePath}))
-                .on('error', reject)
-                .on('close', () => {
-                    process.stdout.write('\nextracted to ' + filePath + '\n');
-                    fulfill(filePath);
-                });
-        } else {
-            process.stdout.write('\nNo file to extract to ' + filePath + '\n');
-            fulfill(filePath);
-        }
-    });
-}
-
-//Recursively delete a directory
-function rmdirR (path) {
-    if (fs.existsSync(path)) {
-        fs.readdirSync(path).forEach(function(file){
-            var curPath = path + "/" + file;
-            if (fs.lstatSync(curPath).isDirectory()) { // recurse
-                rmdirR(curPath);
-            } else { // delete file
-                fs.unlinkSync(curPath);
-            }
-        });
-        fs.rmdirSync(path);
-    }
-}
-
-function errorHandler (error) {
-    if (error.errno === 34 && error.code === 'ENOENT') {
-        console.log('Target directory does not exist');
-    } else {
-        console.log(error);
-    }
-    return error
-}
-
 //Generate backup tar.gz
 function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
     var client = new Client({host, port});
@@ -235,11 +148,6 @@ function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}
             return backupCluster(client, filePath);
         }
     }()).then(files => (process.stdout.write('\n' + files.join('\n')), filePath))
-        .then(compress)
-        .then(rmdirR, errorHandler);
-}
-
-//Extract and populate cluster from tar.gz
-function unpack ({host, port, filePath = 'temp', version}) {
-    return prom((fullfill, reject) => extract(filePath, version));
+        .then(util.compress)
+        .then(util.rmdirR, util.errorHandler);
 }

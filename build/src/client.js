@@ -2,13 +2,13 @@
 var http = require('http');
 var prom = require('promiscuous-tool');
 module.exports = Client;
-function Client($__5) {
-  var host = "host"in $__5 ? $__5.host: 'localhost', port = "port"in $__5 ? $__5.port: 9200;
+function Client($__0) {
+  var host = "host"in $__0 ? $__0.host: 'localhost', port = "port"in $__0 ? $__0.port: 9200;
   this.host = host;
   this.port = port;
 }
-Client.prototype.get = function($__6) {
-  var index = $__6.index, type = $__6.type, path = $__6.path, body = $__6.body;
+Client.prototype.get = function($__1) {
+  var index = $__1.index, type = $__1.type, path = $__1.path, body = $__1.body;
   var path = [index, type, path].filter((function(val) {
     return val;
   })).join('/');
