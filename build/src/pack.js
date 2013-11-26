@@ -5,7 +5,9 @@ var prom = require('promiscuous-tool'), _ = require('lodash');
 module.exports = pack;
 function writeDocuments(fileStream) {
   return (function(data) {
-    return util.promiseWriteToFileStream(fileStream, _.map(data.hits.hits, JSON.stringify).join('\n'));
+    return util.promiseWriteToFileStream(fileStream, _.map(data.hits.hits, (function(data) {
+      return JSON.stringify(data._source);
+    })).join('\n'));
   });
 }
 function documentGetter($__2) {
