@@ -31,12 +31,14 @@ function backupDocuments($__3) {
   return docGetter(start, size).then((function(data) {
     return prom.sequence([writeDocuments(fileStream), (function(data) {
       if (start + size < data.hits.total) {
-        return backupDocuments({
-          docGetter: docGetter,
-          fileStream: fileStream,
-          size: size,
-          start: start + size
-        });
+        return prom.delay(50, (function() {
+          return backupDocuments({
+            docGetter: docGetter,
+            fileStream: fileStream,
+            size: size,
+            start: start + size
+          });
+        }));
       } else {
         return util.promiseEndFile(fileStream);
       }

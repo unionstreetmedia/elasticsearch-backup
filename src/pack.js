@@ -44,12 +44,12 @@ function backupDocuments ({docGetter, fileStream, start = 0, size = 100}) {
             writeDocuments(fileStream),
             data => {
                 if (start + size < data.hits.total) {
-                    return backupDocuments({
+                    return prom.delay(50, () => backupDocuments({
                         docGetter,
                         fileStream,
                         size,
                         start: start + size
-                    });
+                    }));
                 } else {
                     return util.promiseEndFile(fileStream);
                 }
