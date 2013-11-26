@@ -4,6 +4,7 @@ ElasticSearch Backup
 Small utility for backing up ElasticSearch.
 
 ```
-$ ./bin/esbackup pack [host [port [filePath [index [type]]]
-$ ./bin/esbackup unpack [host [port [filePath [version]]]
+$ ./bin/esbackup pack --host 192.168.0.0
+$ ./bin/esbackup unpack --version 1234567
+$ ./bin/esbackup --help
 ```

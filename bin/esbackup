@@ -1,30 +1,43 @@
 #!/usr/bin/env node
-                                                                                                       
-'use strict';                                                                                          
-                                                                                                       
+
+'use strict';
+
 var prom = require('../build/src/promiscuous-config.js'),
-    options = {};
+    command = process.argv.slice(2, 3)[0],
+    argOptions = {
+            'host': 'Host location of ElastSearch instance',
+            'index': 'The index you want to target on ES',
+            'type': 'The type you want to target on ES',
+            'port': 'The port which to access ES, defaults to 9200',
+            'filePath': 'Target directory for backup files',
+            'version': 'Which ES backup to pull from, defaults to latest'
+        },
+    options = argsToOptions(process.argv.slice(3));
 
-maybe(options, 'host', process.argv[3]);                                                               
-maybe(options, 'port', process.argv[4]);
-maybe(options, 'filePath', process.argv[5]);                                                           
+if (options.hasOwnProperty('help')) {
+    console.log('esbackup <command>[pack|unpack] [--option value]\n');
+    Object.keys(argOptions).forEach(function (option) {
+        console.log('--' + option + ': ' + argOptions[option]);
+    });
+    return;
+}
 
-switch (process.argv[2]) {
+switch (command) {
     case 'pack':
-        maybe(options, 'index', process.argv[6]);                                                              
-        maybe(options, 'type', process.argv[7]);                                                               
         return require('../build/src/pack.js')(options);
     case 'unpack':
-        maybe(options, 'version', process.argv[6]);                                                              
         return require('../build/src/unpack.js')(options);
     default:
-        return console.log('WTF, where are your arguments');
+        return console.log('WTF, where is your command?!');
 }
-                                                                                                       
-function maybe (object, name, value) {                                                                 
-    if (value) {                                                                                       
-        object[name] = value;                                                                          
-    }                                                                                                  
-    return object;                                                                                     
-}   
 
+function argsToOptions (args) {
+    var horribleDelimiter = '?**?**?';
+    return args.join(horribleDelimiter).split('--').reduce(function (options, arg) {
+        if (arg) {
+            var a = arg.split(horribleDelimiter);
+            options[a[0]] = a[1];
+        }
+        return options;
+    }, {});
+}
