@@ -81,8 +81,26 @@ function backupType($__4) {
     return [docFileName, mappingFileName];
   }));
 }
+function indexSettings(client, index) {
+  return client.get({
+    index: index,
+    path: '_settings'
+  }).then((function(response) {
+    return response[index];
+  }));
+}
+function indexWriteBackup(filePath, index, data) {
+  return util.promiseWriteToFileStream(fs.createWriteStream(filePath + '/' + index + '_settings.json', {flags: 'w'}), JSON.stringify(data));
+}
 function backupIndex(client, index, filePath) {
-  return mappings(client, index).then((function(mappings) {
+  if (!fs.existsSync(filePath)) {
+    fs.mkdirSync(filePath);
+  }
+  return indexSettings(client, index).then((function(data) {
+    return indexWriteBackup(filePath, index, data);
+  })).then((function() {
+    return mappings(client, index);
+  })).then((function(mappings) {
     return _.keys(mappings).length ? prom.all(_.map(mappings, (function(data, type) {
       return backupType({
         client: client,

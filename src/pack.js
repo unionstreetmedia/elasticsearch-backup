@@ -100,9 +100,27 @@ function backupType ({client, index, type, filePath}) {
         });
 }
 
+//Get Index Settings
+function indexSettings (client, index) {
+    return client.get({
+        index,
+        path: '_settings'}).then(response => response[index]);
+}
+
+function indexWriteBackup (filePath, index, data) {
+    return util.promiseWriteToFileStream(
+            fs.createWriteStream(filePath + '/' + index + '_settings.json', {flags: 'w'}),
+            JSON.stringify(data));
+}
+
 function backupIndex (client, index, filePath) {
-    return mappings(client, index)
-        //Backup type if it exists
+    if (!fs.existsSync(filePath)) {
+        fs.mkdirSync(filePath);
+    }
+    return indexSettings(client, index)
+        .then(data => indexWriteBackup(filePath, index, data))
+        //Backup types if they exist
+        .then(() => mappings(client, index))
         .then(mappings => _.keys(mappings).length
             ? prom.all(_.map(mappings, (data, type) => backupType({
                 client,
