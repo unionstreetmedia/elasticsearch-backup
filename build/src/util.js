@@ -43,9 +43,9 @@ function compress(filePath) {
     }
   }));
 }
-function extract(filePath, version) {
+function extract(file) {
   return prom((function(fulfill, reject) {
-    var file = filePath + '/' + version + '.tar.gz';
+    var filePath = file.substring(0, file.lastIndexOf('/'));
     if (fs.existsSync(file)) {
       fstream.Reader({
         path: file,
@@ -55,7 +55,7 @@ function extract(filePath, version) {
         fulfill(filePath);
       }));
     } else {
-      process.stdout.write('\nNo file to extract to ' + filePath + '\n');
+      process.stdout.write('\nNo file to extract\n');
       fulfill(filePath);
     }
   }));
