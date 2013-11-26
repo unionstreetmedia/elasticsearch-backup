@@ -15,12 +15,10 @@ module.exports = pack;
 
 //Curried function for writing data to a file stream
 function writeDocuments (fileStream) {
-    return data => {
-        return util.promiseWriteToFileStream(
-                fileStream,
-                _.map(data.hits.hits,
-                    data => JSON.stringify(data._source)).join('\n'));
-    };
+    return data => util.promiseWriteToFileStream(
+        fileStream,
+        _.map(data.hits.hits,
+            data => JSON.stringify(data._source)).join('\n'));
 }
 
 //Curried document getter
