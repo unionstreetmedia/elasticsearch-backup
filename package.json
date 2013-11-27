@@ -8,12 +8,14 @@
   },
   "author": "Evan Borden",
   "license": "BSD-2-Clause",
+  "repository": "https://github.com/eborden/elasticsearch-backup",
   "dependencies": {
     "rsvp": "*",
     "promiscuous-tool": "*",
     "lodash": "*",
     "fstream": "*",
-    "tar": "*"
+    "tar": "*",
+    "argparse": "*"
   },
   "devDependencies": {
     "traceur": "*",
