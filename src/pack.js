@@ -83,7 +83,7 @@ function mappings (client, index, type) {
             index,
             type,
             path: '_mapping'
-        }).then(response => !type ? response[index] : response[type]);
+        }).then(response => !type ? response[index] : response);
 }
 
 //Create file path string from base path, index and type

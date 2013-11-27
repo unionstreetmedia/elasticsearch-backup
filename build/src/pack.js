@@ -63,7 +63,7 @@ function mappings(client, index, type) {
     type: type,
     path: '_mapping'
   }).then((function(response) {
-    return !type ? response[index]: response[type];
+    return !type ? response[index]: response;
   }));
 }
 function backupPath(path, index, type) {
