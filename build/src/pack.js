@@ -23,8 +23,8 @@ function documentScroller(client, scrollID) {
     }));
   });
 }
-function startScroll($__2) {
-  var client = $__2.client, index = $__2.index, type = $__2.type, size = "size"in $__2 ? $__2.size: 100;
+function startScroll($__4) {
+  var client = $__4.client, index = $__4.index, type = $__4.type, size = "size"in $__4 ? $__4.size: 100;
   return client.get({
     index: index,
     type: type,
@@ -34,8 +34,8 @@ function startScroll($__2) {
     return documentScroller(client, data['_scroll_id']);
   }));
 }
-function backupDocuments($__3) {
-  var docScroller = $__3.docScroller, fileStream = $__3.fileStream;
+function backupDocuments($__5) {
+  var docScroller = $__5.docScroller, fileStream = $__5.fileStream;
   return docScroller().then((function(data) {
     return prom.sequence([writeDocuments(fileStream), (function(data) {
       if (data.hits.hits.length) {
@@ -70,9 +70,9 @@ function filePaths(path, type) {
   var base = path + '/' + type;
   return [base + '_documents.json', base + '_mapping.json'];
 }
-function backupType($__4) {
-  var client = $__4.client, index = $__4.index, type = $__4.type, filePath = $__4.filePath;
-  var $__5 = filePaths(filePath, type), docFileName = $__5[0], mappingFileName = $__5[1];
+function backupType($__6) {
+  var client = $__6.client, index = $__6.index, type = $__6.type, filePath = $__6.filePath;
+  var $__7 = filePaths(filePath, type), docFileName = $__7[0], mappingFileName = $__7[1];
   return mappings(client, index, type).then((function(mapping) {
     return prom.join(writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping), startScroll({
       client: client,
@@ -141,8 +141,8 @@ function backupCluster(client, filePath) {
     })));
   })).then(_.flatten);
 }
-function pack($__5) {
-  var host = "host"in $__5 ? $__5.host: 'localhost', port = "port"in $__5 ? $__5.port: 9200, index = $__5.index, type = $__5.type, filePath = "filePath"in $__5 ? $__5.filePath: 'temp';
+function pack($__7) {
+  var host = "host"in $__7 ? $__7.host: 'localhost', port = "port"in $__7 ? $__7.port: 9200, index = $__7.index, type = $__7.type, filePath = "filePath"in $__7 ? $__7.filePath: 'temp';
   var client = new Client({
     host: host,
     port: port

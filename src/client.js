@@ -14,6 +14,20 @@ function Client ({host = 'localhost', port = 9200}) {
     this.port = port;
 }
 
+Client.prototype.put = function ({index, type, path, body}) {
+    var path = [index, type, path].filter(val => val).join('/');
+    return prom((fullfil, reject) => {
+        fullfill(path);
+    });
+};
+
+Client.prototype.post = function ({index, type, path, body}) {
+    var path = [index, type, path].filter(val => val).join('/');
+    return prom((fullfil, reject) => {
+        fullfill(path);
+    });
+};
+
 Client.prototype.get = function ({index, type, path, body}) {
     var path = [index, type, path].filter(val => val).join('/');
     return prom((fulfill, reject) => {

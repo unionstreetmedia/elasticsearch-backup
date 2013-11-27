@@ -71,7 +71,7 @@ function extract (file) {
                 .on('error', reject)
                 .on('close', () => {
                     process.stdout.write('\nextracted to ' + filePath + '\n');
-                    fulfill(filePath);
+                    fulfill(file.replace('.tar.gz', ''));
                 });
         } else {
             process.stdout.write('\nNo file to extract\n');

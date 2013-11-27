@@ -53,7 +53,7 @@ function extract(file) {
         type: 'file'
       }).pipe(zlib.Gunzip()).pipe(tar.Extract({path: filePath})).on('error', reject).on('close', (function() {
         process.stdout.write('\nextracted to ' + filePath + '\n');
-        fulfill(filePath);
+        fulfill(file.replace('.tar.gz', ''));
       }));
     } else {
       process.stdout.write('\nNo file to extract\n');

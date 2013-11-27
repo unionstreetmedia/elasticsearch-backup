@@ -7,8 +7,26 @@ function Client($__0) {
   this.host = host;
   this.port = port;
 }
-Client.prototype.get = function($__1) {
+Client.prototype.put = function($__1) {
   var index = $__1.index, type = $__1.type, path = $__1.path, body = $__1.body;
+  var path = [index, type, path].filter((function(val) {
+    return val;
+  })).join('/');
+  return prom((function(fullfil, reject) {
+    fullfill(path);
+  }));
+};
+Client.prototype.post = function($__2) {
+  var index = $__2.index, type = $__2.type, path = $__2.path, body = $__2.body;
+  var path = [index, type, path].filter((function(val) {
+    return val;
+  })).join('/');
+  return prom((function(fullfil, reject) {
+    fullfill(path);
+  }));
+};
+Client.prototype.get = function($__3) {
+  var index = $__3.index, type = $__3.type, path = $__3.path, body = $__3.body;
   var path = [index, type, path].filter((function(val) {
     return val;
   })).join('/');
