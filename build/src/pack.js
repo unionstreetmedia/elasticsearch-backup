@@ -7,7 +7,11 @@ module.exports = pack;
 function writeDocuments(fileStream) {
   return (function(data) {
     return util.promiseWriteToFileStream(fileStream, _.map(data.hits.hits, (function(data) {
-      return JSON.stringify(data._source);
+      return JSON.stringify({index: {
+          _index: data._index,
+          _type: data._type,
+          _id: data._id
+        }}) + '\n' + JSON.stringify(data._source);
     })).join('\n'));
   });
 }
@@ -35,7 +39,7 @@ function backupDocuments($__3) {
   return docScroller().then((function(data) {
     return prom.sequence([writeDocuments(fileStream), (function(data) {
       if (data.hits.hits.length) {
-        process.stdout.write('\rwriting' + fileStream.path + ' : ' + fileStream.bytesWritten + '\r');
+        process.stdout.write('\rwriting ' + fileStream.path + ' : ' + fileStream.bytesWritten + '\r');
         return prom.delay(THROTTLE, (function() {
           return backupDocuments({
             docScroller: docScroller,

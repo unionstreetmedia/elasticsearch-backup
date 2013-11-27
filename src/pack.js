@@ -21,7 +21,13 @@ function writeDocuments (fileStream) {
     return data => util.promiseWriteToFileStream(
         fileStream,
         _.map(data.hits.hits,
-            data => JSON.stringify(data._source)).join('\n'));
+            data => JSON.stringify({
+                index: {
+                    _index: data._index,
+                    _type: data._type,
+                    _id: data._id,
+                }
+            }) + '\n' + JSON.stringify(data._source)).join('\n'));
 }
 
 //Curried document getter
@@ -55,7 +61,7 @@ function backupDocuments ({docScroller, fileStream}) {
             writeDocuments(fileStream),
             data => {
                 if (data.hits.hits.length) {
-                    process.stdout.write('\rwriting' + fileStream.path + ' : ' + fileStream.bytesWritten + '\r');
+                    process.stdout.write('\rwriting ' + fileStream.path + ' : ' + fileStream.bytesWritten + '\r');
                     return prom.delay(THROTTLE, () => backupDocuments({
                         docScroller,
                         fileStream
