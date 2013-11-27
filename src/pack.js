@@ -83,25 +83,17 @@ function mappings (client, index, type) {
             index,
             type,
             path: '_mapping'
-        }).then(response => !type ? response[index] : response);
-}
-
-//Create file path string from base path, index and type
-function backupPath (path, index, type) {
-    return path + '/' + index + '_' + type + '_';
+        }).then(response => type == null ? response[index] : response);
 }
 
 //Create both document and mapping file paths
-function filePaths (path, index, type) {
-    var base = backupPath(path, index, type);
-    return [base + 'documents.json', base + 'mapping.json'];
+function filePaths (path, type) {
+    var base = path + '/' + type;
+    return [base + '_documents.json', base + '_mapping.json'];
 }
 
 function backupType ({client, index, type, filePath}) {
-    var [docFileName, mappingFileName] = filePaths(filePath, index, type);
-    if (!fs.existsSync(filePath)) {
-        fs.mkdirSync(filePath);
-    }
+    var [docFileName, mappingFileName] = filePaths(filePath, type);
     return mappings(client, index, type)
         .then(mapping => prom.join(
             writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping),
@@ -126,18 +118,30 @@ function indexSettings (client, index) {
         path: '_settings'}).then(response => response[index]);
 }
 
-function indexWriteBackup (filePath, index, data) {
+function indexWriteSettings (filePath, index, data) {
+    var innerSettings = {};
+    innerSettings[index] = {
+        'number_of_shards': data.settings['index.number_of_shards'],
+        'number_of_replicas': data.settings['index.number_of_replicas']
+    };
     return util.promiseWriteToFileStream(
-            fs.createWriteStream(filePath + '/' + index + '_settings.json', {flags: 'w'}),
-            JSON.stringify(data));
+        fs.createWriteStream(filePath + '/settings.json', {flags: 'w'}),
+        JSON.stringify({settings: innerSettings}));
 }
 
-function backupIndex (client, index, filePath) {
+function createIndexDir (filePath, index) {
+    filePath = filePath + '/' + index;
     if (!fs.existsSync(filePath)) {
         fs.mkdirSync(filePath);
     }
+    return filePath;
+}
+
+function backupIndex (client, index, filePath) {
+    //Store index data in single directory
+    filePath = createIndexDir(filePath, index);
     return indexSettings(client, index)
-        .then(data => indexWriteBackup(filePath, index, data))
+        .then(data => indexWriteSettings(filePath, index, data))
         //Backup types if they exist
         .then(() => mappings(client, index))
         .then(mappings => _.keys(mappings).length
@@ -176,8 +180,14 @@ function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}
     //append timestamp for unique id
     filePath += '/' + new Date().getTime();
 
+    //Make route directory
+    if (!fs.existsSync(filePath)) {
+        fs.mkdirSync(filePath);
+    }
+
     return (() => { 
         if (index && type) {
+            filePath = createIndexDir(filePath, index);
             return backupType({client, index, type, filePath});
         } else if (index) {
             return backupIndex(client, index, filePath);

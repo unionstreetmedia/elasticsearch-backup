@@ -63,22 +63,16 @@ function mappings(client, index, type) {
     type: type,
     path: '_mapping'
   }).then((function(response) {
-    return !type ? response[index]: response;
+    return type == null ? response[index]: response;
   }));
 }
-function backupPath(path, index, type) {
-  return path + '/' + index + '_' + type + '_';
-}
-function filePaths(path, index, type) {
-  var base = backupPath(path, index, type);
-  return [base + 'documents.json', base + 'mapping.json'];
+function filePaths(path, type) {
+  var base = path + '/' + type;
+  return [base + '_documents.json', base + '_mapping.json'];
 }
 function backupType($__4) {
   var client = $__4.client, index = $__4.index, type = $__4.type, filePath = $__4.filePath;
-  var $__5 = filePaths(filePath, index, type), docFileName = $__5[0], mappingFileName = $__5[1];
-  if (!fs.existsSync(filePath)) {
-    fs.mkdirSync(filePath);
-  }
+  var $__5 = filePaths(filePath, type), docFileName = $__5[0], mappingFileName = $__5[1];
   return mappings(client, index, type).then((function(mapping) {
     return prom.join(writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping), startScroll({
       client: client,
@@ -102,15 +96,25 @@ function indexSettings(client, index) {
     return response[index];
   }));
 }
-function indexWriteBackup(filePath, index, data) {
-  return util.promiseWriteToFileStream(fs.createWriteStream(filePath + '/' + index + '_settings.json', {flags: 'w'}), JSON.stringify(data));
+function indexWriteSettings(filePath, index, data) {
+  var innerSettings = {};
+  innerSettings[index] = {
+    'number_of_shards': data.settings['index.number_of_shards'],
+    'number_of_replicas': data.settings['index.number_of_replicas']
+  };
+  return util.promiseWriteToFileStream(fs.createWriteStream(filePath + '/settings.json', {flags: 'w'}), JSON.stringify({settings: innerSettings}));
 }
-function backupIndex(client, index, filePath) {
+function createIndexDir(filePath, index) {
+  filePath = filePath + '/' + index;
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(filePath);
   }
+  return filePath;
+}
+function backupIndex(client, index, filePath) {
+  filePath = createIndexDir(filePath, index);
   return indexSettings(client, index).then((function(data) {
-    return indexWriteBackup(filePath, index, data);
+    return indexWriteSettings(filePath, index, data);
   })).then((function() {
     return mappings(client, index);
   })).then((function(mappings) {
@@ -144,8 +148,12 @@ function pack($__5) {
     port: port
   });
   filePath += '/' + new Date().getTime();
+  if (!fs.existsSync(filePath)) {
+    fs.mkdirSync(filePath);
+  }
   return ((function() {
     if (index && type) {
+      filePath = createIndexDir(filePath, index);
       return backupType({
         client: client,
         index: index,
