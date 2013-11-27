@@ -29,7 +29,7 @@ pack.addArgument(['--index'], {help: 'The index to be archived.'});
 pack.addArgument(['--type'], {help: 'The type to be archived.'});
 
 //Unpack Options
-unpack.addArgument(['--ver'], {help: 'Which ES backup to pull from, defaults to latest'});
+unpack.addArgument(['--name'], {help: 'Which ES backup to pull from, defaults to latest'});
 
 //Remove empty options to retain defaults
 options = _.reduce(parser.parseArgs(), function (o, val, key) {
