@@ -20,21 +20,24 @@ Client.prototype.get = function($__1) {
       method: 'get',
       headers: {'Content-Type': 'application/json'}
     }, (function(response) {
-      if (response.statusCode == 200) {
-        var data = '';
-        response.on('data', (function(chunk) {
-          return data += chunk;
-        })).once('error', (function(error) {
-          return reject(error);
-        })).once('end', (function() {
-          return fulfill(JSON.parse(data));
-        }));
-      } else {
-        reject(response);
-      }
+      var data = '';
+      response.on('data', (function(chunk) {
+        return data += chunk;
+      })).once('error', (function(error) {
+        return reject(error);
+      })).once('end', (function() {
+        if (response.statusCode == 200) {
+          fulfill(JSON.parse(data));
+        } else {
+          reject(response.statusCode + ':' + path + '\n\n' + data);
+        }
+      }));
     }));
     if (body) {
-      request.write(JSON.stringify(body));
+      if (typeof body === 'object') {
+        body = JSON.stringify(body);
+      }
+      request.write(body);
     }
     request.once('error', (function(error) {
       return reject(error);

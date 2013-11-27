@@ -11,6 +11,9 @@ var Client = require('./client.js'),
 var prom = require('promiscuous-tool'),
     _ = require('lodash');
 
+//Globals
+var THROTTLE = 50;
+
 module.exports = pack;
 
 //Curried function for writing data to a file stream
@@ -22,33 +25,40 @@ function writeDocuments (fileStream) {
 }
 
 //Curried document getter
-function documentGetter ({client, index, type, sortBy = '_Created'}) {
-    return (start, size) => client.get({
-        index: index,
-        type: type,
-        path: '_search',
-        body: {
-            query: {
-                "match_all": {}
-            },
-            start: start,
-            size: size,
-            sortBy: sortBy
-        }
+function documentScroller (client, scrollID) {
+    return () => client.get({
+        path: '_search/scroll?scroll=' + (THROTTLE + 100) + 'm&scroll_id=' + scrollID
+    }).then(data => {
+        //Reassign scrollID
+        scrollID = data['_scroll_id'];
+        return data;
     });
 }
 
-function backupDocuments ({docGetter, fileStream, start = 0, size = 100}) {
-    return docGetter(start, size)
+//Kick off a scroll search
+function startScroll ({client, index, type, size = 100}) {
+    return client.get({
+        index: index,
+        type: type,
+        path: '_search?search_type=scan&scroll=' + (THROTTLE + 100) + 'm&size=' + size,
+        body: {
+            query: {
+                "match_all": {}
+            }
+        }
+    }).then(data => documentScroller(client, data['_scroll_id']));
+}
+
+function backupDocuments ({docScroller, fileStream}) {
+    return docScroller()
         .then(data => prom.sequence([
             writeDocuments(fileStream),
             data => {
-                if (start + size < data.hits.total) {
-                    return prom.delay(50, () => backupDocuments({
-                        docGetter,
-                        fileStream,
-                        size,
-                        start: start + size
+                if (data.hits.hits.length) {
+                    process.stdout.write('\rwriting' + fileStream.path + ' : ' + fileStream.bytesWritten + '\r');
+                    return prom.delay(THROTTLE, () => backupDocuments({
+                        docScroller,
+                        fileStream
                     }));
                 } else {
                     return util.promiseEndFile(fileStream);
@@ -89,13 +99,15 @@ function backupType ({client, index, type, filePath}) {
     return mappings(client, index, type)
         .then(mapping => prom.join(
             writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping),
-            backupDocuments({
-                docGetter: documentGetter({
+            startScroll({
                     client,
                     index,
                     type
-                }),
-                fileStream: fs.createWriteStream(docFileName, {flags: 'w'})})))
+            }).then(docScroller => backupDocuments({
+                docScroller,
+                fileStream: fs.createWriteStream(docFileName, {flags: 'w'})
+            }))
+        ))
         .then(() => {
             return [docFileName, mappingFileName];
         });

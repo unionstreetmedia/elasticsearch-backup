@@ -16,7 +16,8 @@ module.exports = {
     compress: compress,
     extract: extract,
     rmdirR: rmdirR,
-    errorHandler: errorHandler
+    errorHandler: errorHandler,
+    log: log
 };
 
 //Write to file stream and return promise
@@ -101,4 +102,9 @@ function errorHandler (error) {
         console.log(error);
     }
     return error
+}
+
+function log (foo) {
+    console.log(foo);
+    return foo;
 }

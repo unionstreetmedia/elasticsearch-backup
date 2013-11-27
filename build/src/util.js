@@ -7,7 +7,8 @@ module.exports = {
   compress: compress,
   extract: extract,
   rmdirR: rmdirR,
-  errorHandler: errorHandler
+  errorHandler: errorHandler,
+  log: log
 };
 function promiseWriteToFileStream(fileStream, data) {
   return prom((function(fulfill, reject) {
@@ -80,4 +81,8 @@ function errorHandler(error) {
     console.log(error);
   }
   return error;
+}
+function log(foo) {
+  console.log(foo);
+  return foo;
 }

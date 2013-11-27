@@ -26,17 +26,22 @@ Client.prototype.get = function ({index, type, path, body}) {
                 'Content-Type': 'application/json'
             }
         }, response => {
-            if (response.statusCode == 200) {
-                var data = '';
-                response.on('data', chunk => data += chunk)
-                    .once('error', error => reject(error))
-                    .once('end', () => fulfill(JSON.parse(data)));
-            } else {
-                reject(response);
-            }
+            var data = '';
+            response.on('data', chunk => data += chunk)
+                .once('error', error => reject(error))
+                .once('end', () => {
+                    if (response.statusCode == 200) {
+                        fulfill(JSON.parse(data));
+                    } else {
+                        reject(response.statusCode + ':' + path + '\n\n' + data);
+                    }
+                });
         });
         if (body) {
-            request.write(JSON.stringify(body));
+            if (typeof body === 'object') {
+                body = JSON.stringify(body);
+            }
+            request.write(body);
         }
         request.once('error', error => reject(error));
         request.end();

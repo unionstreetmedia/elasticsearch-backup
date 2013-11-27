@@ -2,6 +2,7 @@
 var fs = require('fs');
 var Client = require('./client.js'), util = require('./util.js');
 var prom = require('promiscuous-tool'), _ = require('lodash');
+var THROTTLE = 50;
 module.exports = pack;
 function writeDocuments(fileStream) {
   return (function(data) {
@@ -10,33 +11,35 @@ function writeDocuments(fileStream) {
     })).join('\n'));
   });
 }
-function documentGetter($__2) {
-  var client = $__2.client, index = $__2.index, type = $__2.type, sortBy = "sortBy"in $__2 ? $__2.sortBy: '_Created';
-  return (function(start, size) {
-    return client.get({
-      index: index,
-      type: type,
-      path: '_search',
-      body: {
-        query: {"match_all": {}},
-        start: start,
-        size: size,
-        sortBy: sortBy
-      }
-    });
+function documentScroller(client, scrollID) {
+  return (function() {
+    return client.get({path: '_search/scroll?scroll=' + (THROTTLE + 100) + 'm&scroll_id=' + scrollID}).then((function(data) {
+      scrollID = data['_scroll_id'];
+      return data;
+    }));
   });
 }
+function startScroll($__2) {
+  var client = $__2.client, index = $__2.index, type = $__2.type, size = "size"in $__2 ? $__2.size: 100;
+  return client.get({
+    index: index,
+    type: type,
+    path: '_search?search_type=scan&scroll=' + (THROTTLE + 100) + 'm&size=' + size,
+    body: {query: {"match_all": {}}}
+  }).then((function(data) {
+    return documentScroller(client, data['_scroll_id']);
+  }));
+}
 function backupDocuments($__3) {
-  var docGetter = $__3.docGetter, fileStream = $__3.fileStream, start = "start"in $__3 ? $__3.start: 0, size = "size"in $__3 ? $__3.size: 100;
-  return docGetter(start, size).then((function(data) {
+  var docScroller = $__3.docScroller, fileStream = $__3.fileStream;
+  return docScroller().then((function(data) {
     return prom.sequence([writeDocuments(fileStream), (function(data) {
-      if (start + size < data.hits.total) {
-        return prom.delay(50, (function() {
+      if (data.hits.hits.length) {
+        process.stdout.write('\rwriting' + fileStream.path + ' : ' + fileStream.bytesWritten + '\r');
+        return prom.delay(THROTTLE, (function() {
           return backupDocuments({
-            docGetter: docGetter,
-            fileStream: fileStream,
-            size: size,
-            start: start + size
+            docScroller: docScroller,
+            fileStream: fileStream
           });
         }));
       } else {
@@ -73,14 +76,16 @@ function backupType($__4) {
     fs.mkdirSync(filePath);
   }
   return mappings(client, index, type).then((function(mapping) {
-    return prom.join(writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping), backupDocuments({
-      docGetter: documentGetter({
-        client: client,
-        index: index,
-        type: type
-      }),
-      fileStream: fs.createWriteStream(docFileName, {flags: 'w'})
-    }));
+    return prom.join(writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping), startScroll({
+      client: client,
+      index: index,
+      type: type
+    }).then((function(docScroller) {
+      return backupDocuments({
+        docScroller: docScroller,
+        fileStream: fs.createWriteStream(docFileName, {flags: 'w'})
+      });
+    })));
   })).then((function() {
     return [docFileName, mappingFileName];
   }));
