@@ -53,7 +53,6 @@ function backupDocuments($__3) {
   }));
 }
 function writeMappingBackup(fileStream, mapping) {
-  console.log(mapping);
   return util.promiseWriteToFileStream(fileStream, JSON.stringify(mapping)).then((function() {
     return util.promiseEndFile(fileStream);
   }));
@@ -67,12 +66,9 @@ function mappings(client, index, type) {
     return type == null ? response[index]: response;
   }));
 }
-function typePath(path, type) {
-  return path + '/' + type;
-}
 function backupType($__4) {
   var client = $__4.client, index = $__4.index, type = $__4.type, filePath = $__4.filePath;
-  filePath = typePath(filePath, type);
+  filePath = path + '/' + type;
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(filePath);
   }

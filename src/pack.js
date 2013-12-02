@@ -86,13 +86,8 @@ function mappings (client, index, type) {
         }).then(response => type == null ? response[index] : response);
 }
 
-//Create both document and mapping file paths
-function typePath (path, type) {
-    return path + '/' + type;
-}
-
 function backupType ({client, index, type, filePath}) {
-    filePath = typePath(filePath, type);
+    filePath = path + '/' + type;
 
     if (!fs.existsSync(filePath)) {
         fs.mkdirSync(filePath);

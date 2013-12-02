@@ -48,7 +48,7 @@ function unpack($__6) {
     host: host,
     port: port
   });
-  return util.extract(filePath + '/' + version(filePath, name)).then(_.partial(buildIndexes, client)).then((function(data) {
+  return util.extract(filePath + '/' + version(filePath, name)).then((function(data) {
     return console.log(data);
   }), util.errorHandler);
 }

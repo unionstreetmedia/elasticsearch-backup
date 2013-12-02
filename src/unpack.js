@@ -75,6 +75,6 @@ function buildIndexes (client, filePath) {
 function unpack ({host, port, filePath = 'temp', name = 'latest'}) {
     var client = new Client({host, port});
     return util.extract(filePath + '/' + version(filePath, name))
-        .then(_.partial(buildIndexes, client))
+        //.then(_.partial(buildIndexes, client))
         .then(data => console.log(data), util.errorHandler);
 }

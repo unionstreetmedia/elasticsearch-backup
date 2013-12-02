@@ -34,7 +34,7 @@ function compress(filePath) {
       fstream.Reader({
         path: filePath,
         type: 'Directory'
-      }).pipe(tar.Pack()).pipe(zlib.Gzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('error', reject).on('close', (function() {
+      }).pipe(tar.Pack()).pipe(zlib.createGzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('error', reject).on('close', (function() {
         process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
         fulfill(filePath);
       }));
@@ -51,7 +51,7 @@ function extract(file) {
       fstream.Reader({
         path: file,
         type: 'file'
-      }).pipe(zlib.Gunzip()).pipe(tar.Extract({path: filePath})).on('error', reject).on('close', (function() {
+      }).pipe(zlib.createUnzip()).pipe(tar.Extract({path: filePath})).on('error', reject).on('close', (function() {
         process.stdout.write('\nextracted to ' + filePath + '\n');
         fulfill(file.replace('.tar.gz', ''));
       }));

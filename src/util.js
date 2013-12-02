@@ -46,7 +46,7 @@ function compress (filePath) {
         if (fs.existsSync(filePath)) {
             fstream.Reader({path: filePath, type: 'Directory'})
                 .pipe(tar.Pack())
-                .pipe(zlib.Gzip())
+                .pipe(zlib.createGzip())
                 .pipe(fstream.Writer(filePath + '.tar.gz'))
                 .on('error', reject)
                 .on('close', () => {
@@ -63,10 +63,9 @@ function compress (filePath) {
 function extract (file) {
     return prom((fulfill, reject) => {
         var filePath = file.substring(0, file.lastIndexOf('/'));
-        //tar and gzip the directory
         if (fs.existsSync(file)) {
             fstream.Reader({path: file, type: 'file'})
-                .pipe(zlib.Gunzip())
+                .pipe(zlib.createUnzip())
                 .pipe(tar.Extract({path: filePath}))
                 .on('error', reject)
                 .on('close', () => {
