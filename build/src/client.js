@@ -1,41 +1,23 @@
 'use strict';
 var http = require('http');
-var prom = require('promiscuous-tool');
+var prom = require('promiscuous-tool'), _ = require('lodash');
 module.exports = Client;
 function Client($__0) {
   var host = "host"in $__0 ? $__0.host: 'localhost', port = "port"in $__0 ? $__0.port: 9200;
   this.host = host;
   this.port = port;
 }
-Client.prototype.put = function($__1) {
+Client.prototype.request = function(method, $__1) {
   var index = $__1.index, type = $__1.type, path = $__1.path, body = $__1.body;
-  var path = [index, type, path].filter((function(val) {
-    return val;
-  })).join('/');
-  return prom((function(fullfil, reject) {
-    fullfill(path);
-  }));
-};
-Client.prototype.post = function($__2) {
-  var index = $__2.index, type = $__2.type, path = $__2.path, body = $__2.body;
-  var path = [index, type, path].filter((function(val) {
-    return val;
-  })).join('/');
-  return prom((function(fullfil, reject) {
-    fullfill(path);
-  }));
-};
-Client.prototype.get = function($__3) {
-  var index = $__3.index, type = $__3.type, path = $__3.path, body = $__3.body;
-  var path = [index, type, path].filter((function(val) {
+  path = [index, type, path].filter((function(val) {
     return val;
   })).join('/');
   return prom((function(fulfill, reject) {
     var request = http.request({
+      method: method,
+      path: path,
       host: this.host,
       port: this.port,
-      path: path,
-      method: 'get',
       headers: {'Content-Type': 'application/json'}
     }, (function(response) {
       var data = '';
@@ -63,3 +45,6 @@ Client.prototype.get = function($__3) {
     request.end();
   }).bind(this));
 };
+Client.prototype.put = _.partial(Client.prototype.request, 'put');
+Client.prototype.post = _.partial(Client.prototype.request, 'post');
+Client.prototype.get = _.partial(Client.prototype.request, 'get');

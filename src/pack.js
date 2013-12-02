@@ -87,13 +87,20 @@ function mappings (client, index, type) {
 }
 
 //Create both document and mapping file paths
-function filePaths (path, type) {
-    var base = path + '/' + type;
-    return [base + '_documents.json', base + '_mapping.json'];
+function typePath (path, type) {
+    return path + '/' + type;
 }
 
 function backupType ({client, index, type, filePath}) {
-    var [docFileName, mappingFileName] = filePaths(filePath, type);
+    filePath = typePath(filePath, type);
+
+    if (!fs.existsSync(filePath)) {
+        fs.mkdirSync(filePath);
+    }
+
+    var docFileName = filePath + '/documents.json',
+        mappingFileName = filePath + '/mapping.json';
+
     return mappings(client, index, type)
         .then(mapping => prom.join(
             writeMappingBackup(fs.createWriteStream(mappingFileName, {flags: 'w'}), mapping),

@@ -42,8 +42,8 @@ function buildIndex(client, filePath, index) {
 function buildIndexes(client, filePath) {
   return getIndexDirectories(filePath).then(_.partialRight(_.map, _.partial(buildIndex, client, filePath)));
 }
-function unpack($__8) {
-  var host = $__8.host, port = $__8.port, filePath = "filePath"in $__8 ? $__8.filePath: 'temp', name = "name"in $__8 ? $__8.name: 'latest';
+function unpack($__6) {
+  var host = $__6.host, port = $__6.port, filePath = "filePath"in $__6 ? $__6.filePath: 'temp', name = "name"in $__6 ? $__6.name: 'latest';
   var client = new Client({
     host: host,
     port: port
