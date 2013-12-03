@@ -87,7 +87,7 @@ function mappings (client, index, type) {
 }
 
 function backupType ({client, index, type, filePath}) {
-    filePath = path + '/' + type;
+    filePath = filePath + '/' + type;
 
     if (!fs.existsSync(filePath)) {
         fs.mkdirSync(filePath);
@@ -176,7 +176,7 @@ function backupCluster (client, filePath) {
 }
 
 //Generate backup tar.gz
-function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}) {
+function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp', no_compress = false}) {
     var client = new Client({host, port});
 
     //append timestamp for unique id
@@ -187,7 +187,7 @@ function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}
         fs.mkdirSync(filePath);
     }
 
-    return (() => { 
+    var promise = (() => { 
         if (index && type) {
             filePath = createIndexDir(filePath, index);
             return backupType({client, index, type, filePath});
@@ -196,7 +196,13 @@ function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp'}
         } else {
             return backupCluster(client, filePath);
         }
-    }()).then(files => (process.stdout.write('\n' + files.join('\n')), filePath))
-        .then(util.compress)
+    }()).then(files => (process.stdout.write('\n' + files.join('\n')), filePath));
+
+    //Compress and archive the data
+    if (!no_compress) {
+        promise.then(util.compress)
         .then(util.rmdirR, util.errorHandler);
+    }
+
+    return promise;
 }

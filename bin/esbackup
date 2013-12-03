@@ -27,6 +27,7 @@ parser.addArgument(['--filePath'], {help: 'Target directory for backup files'});
 //Pack Options
 pack.addArgument(['--index'], {help: 'The index to be archived.'});
 pack.addArgument(['--type'], {help: 'The type to be archived.'});
+pack.addArgument(['--no-compress'], {help: 'Do not compress the resulting file.', action: 'storeConst', constant: true});
 
 //Unpack Options
 unpack.addArgument(['--name'], {help: 'Which ES backup to pull from, defaults to latest'});

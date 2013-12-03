@@ -68,7 +68,7 @@ function mappings(client, index, type) {
 }
 function backupType($__4) {
   var client = $__4.client, index = $__4.index, type = $__4.type, filePath = $__4.filePath;
-  filePath = path + '/' + type;
+  filePath = filePath + '/' + type;
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(filePath);
   }
@@ -142,7 +142,7 @@ function backupCluster(client, filePath) {
   })).then(_.flatten);
 }
 function pack($__5) {
-  var host = "host"in $__5 ? $__5.host: 'localhost', port = "port"in $__5 ? $__5.port: 9200, index = $__5.index, type = $__5.type, filePath = "filePath"in $__5 ? $__5.filePath: 'temp';
+  var host = "host"in $__5 ? $__5.host: 'localhost', port = "port"in $__5 ? $__5.port: 9200, index = $__5.index, type = $__5.type, filePath = "filePath"in $__5 ? $__5.filePath: 'temp', no_compress = "no_compress"in $__5 ? $__5.no_compress: false;
   var client = new Client({
     host: host,
     port: port
@@ -151,7 +151,7 @@ function pack($__5) {
   if (!fs.existsSync(filePath)) {
     fs.mkdirSync(filePath);
   }
-  return ((function() {
+  var promise = ((function() {
     if (index && type) {
       filePath = createIndexDir(filePath, index);
       return backupType({
@@ -167,5 +167,9 @@ function pack($__5) {
     }
   })()).then((function(files) {
     return (process.stdout.write('\n' + files.join('\n')), filePath);
-  })).then(util.compress).then(util.rmdirR, util.errorHandler);
+  }));
+  if (!no_compress) {
+    promise.then(util.compress).then(util.rmdirR, util.errorHandler);
+  }
+  return promise;
 }
