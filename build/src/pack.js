@@ -169,7 +169,7 @@ function pack($__5) {
     return (process.stdout.write('\n' + files.join('\n')), filePath);
   }));
   if (!no_compress) {
-    promise.then(util.compress).then(util.rmdirR, util.errorHandler);
+    promise = promise.then(util.compress).then(util.rmdirR, util.errorHandler);
   }
   return promise;
 }

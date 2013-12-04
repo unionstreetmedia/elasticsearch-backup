@@ -200,7 +200,7 @@ function pack ({host = 'localhost', port = 9200, index, type, filePath = 'temp',
 
     //Compress and archive the data
     if (!no_compress) {
-        promise.then(util.compress)
+        promise = promise.then(util.compress)
         .then(util.rmdirR, util.errorHandler);
     }
 
