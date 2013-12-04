@@ -34,7 +34,7 @@ function compress(filePath) {
       fstream.Reader({
         path: filePath,
         type: 'Directory'
-      }).pipe(tar.Pack()).pipe(zlib.createGzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('error', reject).on('close', (function() {
+      }).pipe(tar.Pack()).pipe(zlib.Gzip()).pipe(fstream.Writer(filePath + '.tar.gz')).on('error', reject).on('close', (function() {
         process.stdout.write('\ncompressed to ' + filePath + '.tar.gz \n');
         fulfill(filePath);
       }));
@@ -46,14 +46,15 @@ function compress(filePath) {
 }
 function extract(file) {
   return prom((function(fulfill, reject) {
-    var filePath = file.substring(0, file.lastIndexOf('/'));
+    var filePath = file.substring(0, file.lastIndexOf('/')), fileName = file.replace('.tar.gz', ''), tarFile = fileName + '.tar';
     if (fs.existsSync(file)) {
-      fstream.Reader({
-        path: file,
-        type: 'file'
-      }).pipe(zlib.createUnzip()).pipe(tar.Extract({path: filePath})).on('error', reject).on('close', (function() {
-        process.stdout.write('\nextracted to ' + filePath + '\n');
-        fulfill(file.replace('.tar.gz', ''));
+      fs.createReadStream(file).pipe(zlib.Gunzip()).pipe(fstream.Writer(tarFile)).on('close', (function() {
+        process.stdout.write('\nextracted to ' + tarFile + '\n');
+        require('child_process').exec('tar xvf ' + tarFile + ' -C ' + filePath, (function() {
+          fs.unlinkSync(tarFile);
+          process.stdout.write('\nextracted to ' + fileName + '\n');
+          fulfill(fileName);
+        }));
       }));
     } else {
       process.stdout.write('\nNo file to extract\n');

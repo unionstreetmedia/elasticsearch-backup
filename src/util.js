@@ -46,7 +46,7 @@ function compress (filePath) {
         if (fs.existsSync(filePath)) {
             fstream.Reader({path: filePath, type: 'Directory'})
                 .pipe(tar.Pack())
-                .pipe(zlib.createGzip())
+                .pipe(zlib.Gzip())
                 .pipe(fstream.Writer(filePath + '.tar.gz'))
                 .on('error', reject)
                 .on('close', () => {
@@ -62,15 +62,21 @@ function compress (filePath) {
 
 function extract (file) {
     return prom((fulfill, reject) => {
-        var filePath = file.substring(0, file.lastIndexOf('/'));
+        var filePath = file.substring(0, file.lastIndexOf('/')),
+            fileName = file.replace('.tar.gz', ''),
+            tarFile = fileName + '.tar';
         if (fs.existsSync(file)) {
-            fstream.Reader({path: file, type: 'file'})
-                .pipe(zlib.createUnzip())
-                .pipe(tar.Extract({path: filePath}))
-                .on('error', reject)
+            fs.createReadStream(file)
+                .pipe(zlib.Gunzip())
+                .pipe(fstream.Writer(tarFile))
                 .on('close', () => {
-                    process.stdout.write('\nextracted to ' + filePath + '\n');
-                    fulfill(file.replace('.tar.gz', ''));
+                    process.stdout.write('\nextracted to ' + tarFile + '\n');
+                    //currently tar.Extract is ungodly slow for large files, so we extract with exec
+                    require('child_process').exec('tar xvf ' + tarFile + ' -C ' + filePath, () => {
+                        fs.unlinkSync(tarFile);
+                        process.stdout.write('\nextracted to ' + fileName + '\n');
+                        fulfill(fileName);
+                    });
                 });
         } else {
             process.stdout.write('\nNo file to extract\n');
