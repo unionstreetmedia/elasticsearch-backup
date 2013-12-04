@@ -9,7 +9,8 @@ var util = require('./util.js'),
 
 //External
 var prom = require('promiscuous-tool'),
-    _ = require('lodash');
+    _ = require('lodash'),
+    byline = require('byline');
 
 module.exports = unpack;
 
@@ -29,52 +30,103 @@ function version (filePath, name) {
 }
 
 //Find index directories
-function getIndexDirectories (filePath) {
+function getDirectories (filePath) {
     return prom((fulfill, reject) => fs.readdir(filePath, (err, files) => {
         if (err) {
             return reject(err);
         }
-        fulfill(files);
+        //filter out files with extensions
+        fulfill(files.filter(file => file.indexOf('.') == -1));
     }));
 }
 
+function getESPath (filePath) {
+    return filePath.split('/').slice(2);
+}
+
 //[id]/[index]/settings.json
-function postSettings (client, filePath) {
-    return filePath;
-    return client.post({
-        index: filePath.substring(filePath.lastIndexOf('/')),
-        body: fs.readFileSync(filePath + '/settings.json')
+function putSettings (client, filePath) {
+    var [index] = getESPath(filePath);
+    return client.put({
+        index,
+        body: fs.readFileSync(filePath + '/settings.json').toString()
+    })
+}
+
+//[id]/[index]/[type]/mapping.json
+function buildTypes (client, filePath) {
+    return getDirectories(filePath)
+        .then(types => prom.all(_.map(types, type => prom.sequence([
+            _.partial(putMapping, client, filePath + '/' + type),
+            _.partial(bulkDocuments, client, filePath + '/' + type)
+        ]))));
+}
+
+function putMapping (client, filePath) {
+    var [index, type] = getESPath(filePath);
+    return client.put({
+        index,
+        type,
+        path: '_mapping',
+        body: fs.readFileSync(filePath + '/mapping.json').toString()
     });
 }
 
-//[id]/[index]/[type]_mapping.json
-function putMappings (client, filePath) {
-    return filePath;
-}
-
-//[id]/[index]/[type]_documents.json
+//[id]/[index]/[type]/documents.json
 function bulkDocuments (client, filePath) {
-    return filePath;
+    filePath = filePath + '/documents.json';
+    return prom((fulfill, reject) => {
+        var maxLines = 2000,
+            buffer = [],
+            promises = [],
+            send = function () {
+                if (buffer.length) {
+                    promises.push(client.post({
+                        path: '_bulk',
+                        body: buffer.join('\n')
+                    }).then(x => x, util.log));
+                    buffer = [];
+                }
+            };
+        if (fs.existsSync(filePath)) {
+            byline(fs.createReadStream(filePath))
+                .on('data', line => {
+                    if (buffer.length == maxLines) {
+                        send();
+                    }
+                    buffer.push(line.toString());
+                })
+                .on('end', () => {
+                    send();
+                    fulfill(promises);
+                });
+        } else {
+            fulfill('no documents');
+        }
+    });
 }
 
 //Repopulate single index
 function buildIndex (client, filePath, index) {
     filePath = filePath + '/' + index;
-    return postSettings(client, filePath);/*
-        .then(putMappings)
-        .then(bulkDocuments)*/
+    return putSettings(client, filePath)
+        .then(_.partial(buildTypes, client, filePath));
 }
 
 //Repopulate indexes
 function buildIndexes (client, filePath) {
-    return getIndexDirectories(filePath)
-        .then(_.partialRight(_.map, _.partial(buildIndex, client, filePath)))
+    return getDirectories(filePath)
+        .then((indexes) => prom.all(_.map(indexes, _.partial(buildIndex, client, filePath))))
 }
 
 //Extract and populate cluster from tar.gz
-function unpack ({host, port, filePath = 'temp', name = 'latest'}) {
-    var client = new Client({host, port});
-    return util.extract(filePath + '/' + version(filePath, name))
-        //.then(_.partial(buildIndexes, client))
-        .then(data => console.log(data), util.errorHandler);
+function unpack ({host = 'localhost', port = 9200, filePath = 'temp', name = 'latest', rebuild = true}) {
+    var client = new Client({host, port}),
+        promise = util.extract(filePath + '/' + version(filePath, name));
+
+    if (rebuild) {
+        promise = promise.then(_.partial(buildIndexes, client));
+    }
+    
+    return promise.then(data => console.log(data), util.errorHandler);
 }
