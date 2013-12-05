@@ -15,7 +15,8 @@
     "lodash": "*",
     "fstream": "*",
     "tar": "*",
-    "argparse": "*"
+    "argparse": "*",
+    "byline": "*"
   },
   "devDependencies": {
     "traceur": "*",
