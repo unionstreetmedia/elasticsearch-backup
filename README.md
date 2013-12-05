@@ -4,7 +4,7 @@ ElasticSearch Backup
 Small utility for backing up ElasticSearch.
 
 ```
-$ ./bin/esbackup -h
+$ bin/esbackup -h
 
 usage: esbackup [-h] [-v] [--host HOST] [--port PORT] [--filePath FILEPATH]
                 {pack,unpack} ...
@@ -23,18 +23,19 @@ commands:
 ```
 
 ```
-$ ./bin/esbackup pack -h
+$ bin/esbackup pack -h
 
-usage: esbackup pack [-h] [--index INDEX] [--type TYPE]
+usage: esbackup pack [-h] [--index INDEX] [--type TYPE] [--no-compress]
 
 Optional arguments:
   -h, --help     Show this help message and exit.
   --index INDEX  The index to be archived.
   --type TYPE    The type to be archived.
+  --no-compress  Do not compress the resulting file.
 ```
 
 ```
-$ ./bin/esbackup unpack -h
+$ bin/esbackup unpack -h
 
 usage: esbackup unpack [-h] [--ver VER]
 
